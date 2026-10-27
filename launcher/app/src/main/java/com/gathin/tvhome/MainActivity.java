@@ -234,6 +234,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean reducedMotion;
     /** config.xml dock_row: the first row is a separate dock (band, parked low, top shelf) rather than plain grid. */
     private boolean dockRow;
+    private boolean continueWatching;
+    private int continueMax, continueMaxAgeDays, continueHidePercent;
+    /** The Continue-watching cards Home shows now; the row is rebuilt only when a read gives different ones. */
+    private List<ContinueRules.Card> shownWatch = java.util.Collections.emptyList();
     /** config single_row: every app in the dock's row, scrolling sideways, no grid below. */
     private boolean singleRow;
     /** The highlight springs past its target (config.xml, focus_overshoot); false goes straight there. */
@@ -407,6 +411,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         advancedEffects = cfg.animations && cfg.advancedEffects;
         reducedMotion = cfg.reducedMotion;
         dockRow = cfg.dockRow;
+        continueWatching = cfg.continueWatching;
+        continueMax = cfg.continueMax;
+        continueMaxAgeDays = cfg.continueMaxAgeDays;
+        continueHidePercent = cfg.continueHidePercent;
         singleRow = cfg.singleRow;
         focusOvershoot = cfg.focusOvershoot;
         festival = cfg.festival;
@@ -943,6 +951,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshWatch();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -1029,6 +1038,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** Rebuilds the tiles (and the module cards), then puts focus back where it was. */
+    /** Reads the Continue-watching rows off the main thread; Home changes only when the cards differ. */
+    private void refreshWatch() {
+        if (!continueWatching) return;
+        final long now = System.currentTimeMillis();
+        new Thread(() -> {
+            final List<ContinueRules.Card> cards =
+                    WatchNextReader.read(this, now, continueMaxAgeDays, continueHidePercent, continueMax);
+            runOnUiThread(() -> {
+                if (isDestroyed() || cards.equals(shownWatch)) return;
+                shownWatch = cards;
+                if (adapter != null) adapter.setWatch(cards);
+            });
+        }, "watch-next").start();
+    }
+
     private void reloadApps(boolean animate) {
         reloadApps(animate, true);
     }
@@ -3326,7 +3350,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public void onTileLongPress(int position, View card) {
-        if (reordering) return;
+        if (reordering || adapter.isWatchAt(position)) return;
         String key = adapter.keyAt(position);
         String pkg = adapter.packageAt(position);
         // Empty dock slots and the Default-home tile carry the launcher's own package: no menu for them.
