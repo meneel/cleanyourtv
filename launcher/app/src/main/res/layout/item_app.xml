@@ -32,6 +32,14 @@
             android:visibility="gone"
             android:contentDescription="@null" />
 
+        <View
+            android:id="@+id/scrim"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/watch_scrim"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/label"
             android:layout_width="match_parent"
@@ -46,6 +54,22 @@
             android:textColor="#FFFFFFFF"
             android:textSize="13sp"
             android:fontFamily="@string/font_body"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/progress_track"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:background="#59FFFFFF"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/progress"
+            android:layout_width="0dp"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom|start"
+            android:background="#FFFFFFFF"
             android:visibility="gone" />
     </FrameLayout>
 

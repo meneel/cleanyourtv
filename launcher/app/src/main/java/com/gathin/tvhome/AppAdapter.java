@@ -64,7 +64,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     static final class Entry {
-        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2, EMPTY = 3;
+        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2, EMPTY = 3, WATCH = 4;
 
         final int kind;
         final String label;
@@ -78,6 +78,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int ambient;
         /** uniform_tiles card fill, top and bottom colour; null until sampled from the icon. */
         int[] backdrop;
+        /** A WATCH tile: the row it shows, its poster once loaded, and where the poster load stands. */
+        ContinueRules.Card card;
+        Drawable poster;
+        /** 0 not asked for yet, 1 loading, 2 loaded, 3 failed. */
+        int posterState;
 
         Entry(String label, ComponentName component, Drawable banner, Drawable icon) {
             this(APP, label, component, banner, icon, null, 0);
@@ -194,6 +199,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final boolean fillDock;
     /** Dock apps found at the last reload, and the empty slots after them. */
     private int docked, emptySlots;
+    /** The Continue-watching row: switched on by config, the cards last handed over, and their tiles by key. */
+    private final boolean watchOn, postersOn;
+    private List<ContinueRules.Card> watchCards = Collections.emptyList();
+    private final Map<String, Entry> watchEntries = new java.util.HashMap<>();
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     /** Apps pre-seeded into the App library's "added" set (config.xml library_apps); empty by default. */
@@ -246,6 +255,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.appLabels = cfg.appLabels;
         this.appBanners = cfg.appBanners;
         this.uniformTiles = cfg.uniformTiles;
+        this.watchOn = cfg.continueWatching;
+        this.postersOn = cfg.continuePosters;
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.
         setHasStableIds(true);
@@ -340,6 +351,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         items.clear();
         items.addAll(fresh);
+        placeWatch();
         notifyDataSetChanged();
     }
 
@@ -471,6 +483,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         h.card.setVisibility(View.VISIBLE);
         h.card.setFocusable(true);
+        h.scrim.setVisibility(View.GONE);
+        h.progressTrack.setVisibility(View.GONE);
+        h.progress.setVisibility(View.GONE);
         h.name.setText(e.name);
         // The dock has no labels, unless always_show_names asks for them (DockDecoration then makes room in the band).
         // In a single row every tile is the dock's kind: the big title above names it.
@@ -492,7 +507,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (e.backdrop == null) e.backdrop = backdrop(e.icon, ambientColorAt(position));
             h.card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, e.backdrop));
         }
-        if (e.banner != null) {
+        if (e.kind == Entry.WATCH) {
+            bindWatch(h, e);
+        } else if (e.banner != null) {
             h.banner.setImageDrawable(e.banner);
             h.banner.setVisibility(View.VISIBLE);
             h.icon.setVisibility(View.GONE);
@@ -507,6 +524,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
+            if (e.kind == Entry.WATCH) return true;   // a row belongs to its app, not to Home
             if (tileMenu) {
                 int pos = h.getBindingAdapterPosition();
                 if (pos != RecyclerView.NO_POSITION) listener.onTileLongPress(pos, v);
@@ -522,8 +540,126 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         });
     }
 
+    /** Replaces the Continue-watching tiles, which sit right after the dock. Null or empty removes them. */
+    void setWatch(List<ContinueRules.Card> cards) {
+        watchCards = cards == null ? Collections.<ContinueRules.Card>emptyList() : new ArrayList<>(cards);
+        placeWatch();
+        notifyDataSetChanged();
+    }
+
+    boolean isWatchAt(int position) {
+        return position >= 0 && position < items.size() && items.get(position).kind == Entry.WATCH;
+    }
+
+    /**
+     * Puts the Continue-watching tiles into {@code items} right after the dock entries. Nothing is added when the
+     * row is off, there is no grid below the dock, or reorder mode is on (a row belongs to its app, not to Home).
+     */
+    private void placeWatch() {
+        for (int i = items.size() - 1; i >= 0; i--) {
+            if (items.get(i).kind == Entry.WATCH) items.remove(i);
+        }
+        if (!watchOn || !dockRow || singleRow || reordering) return;
+        int at = Math.min(items.size(), docked + emptySlots);
+        java.util.Set<String> live = new java.util.HashSet<>();
+        for (ContinueRules.Card c : watchCards) {
+            Entry e = watchEntry(c);
+            if (e == null) continue;
+            live.add(c.key);
+            items.add(at++, e);
+        }
+        watchEntries.keySet().retainAll(live);
+    }
+
+    /** The tile for a card, reusing the earlier one (and its loaded poster) when the card did not change. */
+    private Entry watchEntry(ContinueRules.Card c) {
+        Entry old = watchEntries.get(c.key);
+        if (old != null && c.equals(old.card)) return old;
+        Drawable icon;
+        try {
+            icon = ctx.getPackageManager().getApplicationIcon(c.pkg);
+        } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
+            return null;   // the app that published it is gone
+        }
+        String caption = c.subtitle.isEmpty() ? null : c.subtitle;
+        Entry e = new Entry(Entry.WATCH, c.title, new ComponentName(c.pkg, "watch/" + c.key), null, icon, caption, 0);
+        e.card = c;
+        watchEntries.put(c.key, e);
+        return e;
+    }
+
+    /** A Continue-watching tile: the poster (the app's icon until it loads), the title, and a progress bar. */
+    private void bindWatch(Holder h, Entry e) {
+        ContinueRules.Card c = e.card;
+        ViewGroup.LayoutParams size = h.card.getLayoutParams();
+        h.scrim.setVisibility(View.VISIBLE);
+        h.label.setText(c.title);
+        h.label.setVisibility(View.VISIBLE);
+        if (e.poster != null) {
+            h.banner.setImageDrawable(e.poster);
+            h.banner.setVisibility(View.VISIBLE);
+            h.icon.setVisibility(View.GONE);
+        } else {
+            h.banner.setImageDrawable(null);
+            h.banner.setVisibility(View.GONE);
+            h.icon.setImageDrawable(e.icon);
+            h.icon.setVisibility(View.VISIBLE);
+            if (postersOn && e.posterState == 0 && c.posterUri != null) {
+                e.posterState = 1;
+                PosterCache.load(ctx, c.posterUri, size.width, size.height, bitmap -> {
+                    e.posterState = bitmap != null ? 2 : 3;
+                    if (bitmap != null) e.poster = new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bitmap);
+                    int pos = items.indexOf(e);
+                    if (pos >= 0) notifyItemChanged(pos);
+                });
+            }
+        }
+        if (c.progress >= 0f) {
+            ViewGroup.LayoutParams bar = h.progress.getLayoutParams();
+            bar.width = Math.max(1, Math.round(size.width * Math.min(1f, c.progress)));
+            h.progress.setLayoutParams(bar);
+            h.progressTrack.setVisibility(View.VISIBLE);
+            h.progress.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * Opens the row's deep link, but only into the app that published it: a row cannot send Home to another
+     * app. A link that does not resolve to that app falls back to the app's own normal launch.
+     */
+    private void launchWatch(Entry e) {
+        ContinueRules.Card c = e.card;
+        android.content.pm.PackageManager pm = ctx.getPackageManager();
+        Intent i = null;
+        try {
+            Intent link = Intent.parseUri(c.intentUri, Intent.URI_INTENT_SCHEME);
+            link.setSelector(null);
+            link.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ResolveInfo ri = pm.resolveActivity(link, 0);
+            if (ri != null && ri.activityInfo != null && c.pkg.equals(ri.activityInfo.packageName)) i = link;
+        } catch (java.net.URISyntaxException | RuntimeException ex) {
+            // fall through to the app's own launch
+        }
+        if (i == null) {
+            i = pm.getLeanbackLaunchIntentForPackage(c.pkg);
+            if (i == null) i = pm.getLaunchIntentForPackage(c.pkg);
+            if (i != null) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        try {
+            if (i == null) throw new ActivityNotFoundException();
+            ctx.startActivity(i);
+            if (cinematic) LastOpened.record(ctx, c.pkg);
+        } catch (Exception ex) {
+            Toast.makeText(ctx, ctx.getString(R.string.cant_open, e.label), Toast.LENGTH_SHORT).show();
+        }
+    }
+
     /** Opens the tile's activity by explicit component, with no extras: a card can name nothing else. */
     private void launch(Entry e) {
+        if (e.kind == Entry.WATCH) {
+            launchWatch(e);
+            return;
+        }
         if (e.kind == Entry.HOME_SETTINGS) {
             ctx.startActivity(new Intent(ctx, HomeSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -882,6 +1018,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         final ImageView icon;
         final TextView label;
         final TextView name;
+        /** A WATCH tile's bottom scrim and progress bar; hidden for every other tile. */
+        final View scrim, progressTrack, progress;
         final boolean animations;
         final boolean advancedEffects;
         final boolean reducedMotion;
@@ -899,6 +1037,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             banner = v.findViewById(R.id.banner);
             icon = v.findViewById(R.id.icon);
             label = v.findViewById(R.id.label);
+            scrim = v.findViewById(R.id.scrim);
+            progressTrack = v.findViewById(R.id.progress_track);
+            progress = v.findViewById(R.id.progress);
             name = v.findViewById(R.id.name);
             this.animations = animations;
             this.advancedEffects = advancedEffects;
