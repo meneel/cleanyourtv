@@ -781,6 +781,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return emptySlots > 0;
     }
 
+    /** Continue-watching cards are showing; they must leave the grid while reordering (placeWatch). */
+    boolean hasWatch() {
+        return watchCount > 0;
+    }
+
     /** Tiles that can be moved: everything but the "Default home" tile, which always stays last. */
     int movableCount() {
         int n = items.size();

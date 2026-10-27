@@ -276,6 +276,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private PopupWindow openPopup;
     /** Reorder mode is on (top-bar button). */
     private boolean reordering;
+    /** Reorder took the Continue-watching cards out of the grid; endReorder puts them back. */
+    private boolean reorderHidWatch;
     /** Key of the tile being carried in reorder mode, or null. */
     private String movingKey;
     /** Tile order when reorder mode started, to save only when something moved. */
@@ -1370,7 +1372,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dockedAtStart = adapter.dockFilled();
         for (int i = 0; i < Math.min(dockedAtStart, adapter.movableCount()); i++) dockInSession.add(adapter.keyAt(i));
         adapter.setReordering(true);
-        if (adapter.hasEmptySlots()) reloadTiles();   // every position must hold a tile that can move
+        // Every position must hold a tile that can move: no empty slots, and the Continue-watching cards out of the grid.
+        reorderHidWatch = adapter.hasWatch();
+        if (adapter.hasEmptySlots() || reorderHidWatch) reloadTiles();
         reordering = true;
         orderAtStart = adapter.movableKeys();
         glass.setAccent(REORDER_ACCENT);
@@ -1538,7 +1542,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 Toast.makeText(this, R.string.reorder_not_saved, Toast.LENGTH_SHORT).show();
             }
         }
-        if (fillDockLeavesSlots) reloadTiles();   // the empty dock slots left out while reordering come back
+        if (fillDockLeavesSlots || reorderHidWatch) reloadTiles();   // empty dock slots and the cards come back
+        reorderHidWatch = false;
     }
 
     /**
