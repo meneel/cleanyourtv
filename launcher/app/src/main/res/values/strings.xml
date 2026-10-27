@@ -22,6 +22,9 @@
     <string name="offline">Offline</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
+    <string name="continue_heading">Continue watching</string>
+    <string name="continue_progress">%d%% watched</string>
+    <string name="continue_up_next">Up next</string>
     <string name="date_format">EEEE  d MMMM</string>
     <!-- Date next to the clock on Home; a locale can split it over two lines with \n. -->
     <string name="date_format_home" translatable="false">@string/date_format</string>

@@ -612,6 +612,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         fillDockLeavesSlots = !cfg.fillDock;
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
+        if (continueWatching) grid.addItemDecoration(new WatchDecoration(this, adapter));
         grid.setAdapter(adapter);
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for

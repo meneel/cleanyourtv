@@ -203,6 +203,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final boolean watchOn, postersOn;
     private List<ContinueRules.Card> watchCards = Collections.emptyList();
     private final Map<String, Entry> watchEntries = new java.util.HashMap<>();
+    /** Where the section starts in {@code items} and how many cards it holds (0: none); see watchRows(). */
+    private int watchStart, watchCount;
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     /** Apps pre-seeded into the App library's "added" set (config.xml library_apps); empty by default. */
@@ -421,7 +423,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             });
             return new RecyclerView.ViewHolder(row) { };
         }
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_app, parent, false);
+        View v = LayoutInflater.from(parent.getContext())
+                .inflate(viewType == 3 ? R.layout.item_watch : R.layout.item_app, parent, false);
         float density = parent.getResources().getDisplayMetrics().density;
         int width = parent.getWidth() > 0 ? parent.getWidth() : parent.getMeasuredWidth();
         int inner = width - parent.getPaddingLeft() - parent.getPaddingRight();
@@ -442,6 +445,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             v.setPadding(v.getPaddingLeft(), pad, v.getPaddingRight(), pad);
         }
         name.setLayoutParams(nameLp);
+        View caption = v.findViewById(R.id.watch_caption);
+        if (caption != null) {   // a Continue-watching card: the caption sits under the poster, as wide as it
+            ViewGroup.MarginLayoutParams captionLp = (ViewGroup.MarginLayoutParams) caption.getLayoutParams();
+            captionLp.width = w;
+            captionLp.topMargin = h + Math.round(8 * density);
+            caption.setLayoutParams(captionLp);
+        }
         // A sideways row would stretch a match_parent item across the whole screen: give it a grid column's width.
         if (singleRow) v.getLayoutParams().width = inner / dockSize;
         if (uniformTiles) {
@@ -551,22 +561,43 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return position >= 0 && position < items.size() && items.get(position).kind == Entry.WATCH;
     }
 
+    private static final String WATCH_FILLER = "empty-watch-slot-";
+
+    private static boolean isWatchPart(Entry e) {
+        return e.kind == Entry.WATCH || e.kind == Entry.EMPTY && e.component.getClassName().startsWith(WATCH_FILLER);
+    }
+
+    /** The section's place in the grid, or null when no card is shown; the heading decoration reads it. */
+    WatchRows watchRows() {
+        return watchCount == 0 ? null : WatchRows.of(watchStart, watchCount, dockSize);
+    }
+
     /**
-     * Puts the Continue-watching tiles into {@code items} right after the dock entries. Nothing is added when the
-     * row is off, there is no grid below the dock, or reorder mode is on (a row belongs to its app, not to Home).
+     * Puts the Continue-watching cards into {@code items} right after the dock row, then filler slots so the apps
+     * below start a new row. Nothing is added when the row is off, there is no grid below the dock, or reorder
+     * mode is on (a row belongs to its app, not to Home).
      */
     private void placeWatch() {
         for (int i = items.size() - 1; i >= 0; i--) {
-            if (items.get(i).kind == Entry.WATCH) items.remove(i);
+            if (isWatchPart(items.get(i))) items.remove(i);
         }
+        watchCount = 0;
         if (!watchOn || !dockRow || singleRow || reordering) return;
-        int at = Math.min(items.size(), docked + emptySlots);
+        // Right after the dock row (its dockSize slots), even when more apps are docked than the row holds:
+        // those spill into the grid below and the cards still come first under the dock.
+        int at = Math.min(items.size(), Math.min(docked + emptySlots, dockSize));
+        watchStart = at;
         java.util.Set<String> live = new java.util.HashSet<>();
         for (ContinueRules.Card c : watchCards) {
             Entry e = watchEntry(c);
             if (e == null) continue;
             live.add(c.key);
             items.add(at++, e);
+            watchCount++;
+        }
+        int fillers = WatchRows.fillersFor(watchCount, dockSize);
+        for (int i = 0; i < fillers; i++) {
+            items.add(at++, new Entry(Entry.EMPTY, "", new ComponentName(ctx, WATCH_FILLER + i), null, null, null, 0));
         }
         watchEntries.keySet().retainAll(live);
     }
@@ -588,13 +619,18 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return e;
     }
 
-    /** A Continue-watching tile: the poster (the app's icon until it loads), the title, and a progress bar. */
+    /**
+     * A Continue-watching card: the poster (the app's icon until it loads) with a progress bar on its lower edge,
+     * and the title and progress in a caption under it.
+     */
     private void bindWatch(Holder h, Entry e) {
         ContinueRules.Card c = e.card;
         ViewGroup.LayoutParams size = h.card.getLayoutParams();
-        h.scrim.setVisibility(View.VISIBLE);
-        h.label.setText(c.title);
-        h.label.setVisibility(View.VISIBLE);
+        h.name.setVisibility(View.GONE);   // the caption under the card replaces the focus-only name
+        h.scrim.setVisibility(View.GONE);
+        h.label.setVisibility(View.GONE);
+        h.watchTitle.setText(c.title);
+        h.watchMeta.setText(watchMeta(c));
         if (e.poster != null) {
             h.banner.setImageDrawable(e.poster);
             h.banner.setVisibility(View.VISIBLE);
@@ -621,6 +657,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             h.progressTrack.setVisibility(View.VISIBLE);
             h.progress.setVisibility(View.VISIBLE);
         }
+    }
+
+    /** "S1 E2 - 50% watched" or "S5 E10 - Up next": the second caption line. */
+    private String watchMeta(ContinueRules.Card c) {
+        String state = c.progress >= 0f ? ctx.getString(R.string.continue_progress, Math.round(c.progress * 100f))
+                : ctx.getString(R.string.continue_up_next);
+        return c.subtitle.isEmpty() ? state : c.subtitle + " \u00B7 " + state;
     }
 
     /**
@@ -698,7 +741,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     boolean isLibraryAt(int position) { return showLibrary && position == items.size(); }
 
-    @Override public int getItemViewType(int position) { return isLibraryAt(position) ? 1 : 0; }
+    @Override public int getItemViewType(int position) {
+        if (isLibraryAt(position)) return 1;
+        return items.get(position).kind == Entry.WATCH ? 3 : 0;
+    }
 
     boolean containsPackage(String pkg) {
         for (Entry entry : items) if (entry.pkg.equals(pkg)) return true;
@@ -1020,6 +1066,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         final TextView name;
         /** A WATCH tile's bottom scrim and progress bar; hidden for every other tile. */
         final View scrim, progressTrack, progress;
+        /** A WATCH card's caption under the poster (item_watch.xml only; null on other tiles). */
+        final View watchCaption;
+        final TextView watchTitle, watchMeta;
         final boolean animations;
         final boolean advancedEffects;
         final boolean reducedMotion;
@@ -1040,6 +1089,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             scrim = v.findViewById(R.id.scrim);
             progressTrack = v.findViewById(R.id.progress_track);
             progress = v.findViewById(R.id.progress);
+            watchCaption = v.findViewById(R.id.watch_caption);
+            watchTitle = v.findViewById(R.id.watch_title);
+            watchMeta = v.findViewById(R.id.watch_meta);
             name = v.findViewById(R.id.name);
             this.animations = animations;
             this.advancedEffects = advancedEffects;
