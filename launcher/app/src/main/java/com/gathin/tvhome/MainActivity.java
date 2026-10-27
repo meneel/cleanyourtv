@@ -278,6 +278,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean reordering;
     /** Reorder took the Continue-watching cards out of the grid; endReorder puts them back. */
     private boolean reorderHidWatch;
+    /** Bumped by every refreshWatch, so a slow older read cannot land after a newer one. */
+    private int watchGeneration;
     /** Key of the tile being carried in reorder mode, or null. */
     private String movingKey;
     /** Tile order when reorder mode started, to save only when something moved. */
@@ -1040,16 +1042,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         toggleReorder();
     }
 
-    /** Rebuilds the tiles (and the module cards), then puts focus back where it was. */
     /** Reads the Continue-watching rows off the main thread; Home changes only when the cards differ. */
     private void refreshWatch() {
         if (!continueWatching) return;
         final long now = System.currentTimeMillis();
+        final int generation = ++watchGeneration;
         new Thread(() -> {
             final List<ContinueRules.Card> cards =
                     WatchNextReader.read(this, now, continueMaxAgeDays, continueHidePercent, continueMax);
             runOnUiThread(() -> {
-                if (isDestroyed() || cards.equals(shownWatch)) return;
+                if (isDestroyed() || generation != watchGeneration || cards.equals(shownWatch)) return;
                 shownWatch = cards;
                 if (adapter != null) adapter.setWatch(cards);
             });

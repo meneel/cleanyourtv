@@ -42,6 +42,8 @@ final class PosterCache {
     private static final int CACHE_FILES = 24;
     private static final long CACHE_BYTES = 24L * 1024 * 1024;
     private static final long MAX_PIXELS = 40L * 1000 * 1000;
+    /** What one poster may decode to (RGB_565, 2 bytes a pixel: 4 MB). */
+    private static final long MAX_DECODED_PIXELS = 2L * 1000 * 1000;
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler UI = new Handler(Looper.getMainLooper());
 
@@ -156,12 +158,8 @@ final class PosterCache {
         o.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(data, 0, data.length, o);
         if (o.outWidth <= 0 || o.outHeight <= 0 || (long) o.outWidth * o.outHeight > MAX_PIXELS) return null;
-        int sample = 1;
-        while (width > 0 && height > 0 && o.outWidth / (sample * 2) >= width && o.outHeight / (sample * 2) >= height) {
-            sample *= 2;
-        }
         o.inJustDecodeBounds = false;
-        o.inSampleSize = sample;
+        o.inSampleSize = PosterRules.sampleSize(o.outWidth, o.outHeight, width, height, MAX_DECODED_PIXELS);
         o.inPreferredConfig = Bitmap.Config.RGB_565;
         return BitmapFactory.decodeByteArray(data, 0, data.length, o);
     }

@@ -46,6 +46,17 @@ final class PosterRules {
     }
 
     /** SHA-256 of the address as 64 lower-case hex characters: the cache file's name. */
+    /**
+     * The BitmapFactory sample size: halve while the picture stays at least tile size on both sides, then keep
+     * halving until it decodes to at most {@code maxPixels}, so one extreme-aspect picture cannot take the memory.
+     */
+    static int sampleSize(int w, int h, int tileW, int tileH, long maxPixels) {
+        int s = 1;
+        while (tileW > 0 && tileH > 0 && w / (s * 2) >= tileW && h / (s * 2) >= tileH) s *= 2;
+        while ((long) (w / s) * (h / s) > maxPixels) s *= 2;
+        return s;
+    }
+
     static String key(String uri) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(uri.getBytes(StandardCharsets.UTF_8));

@@ -677,7 +677,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         try {
             Intent link = Intent.parseUri(c.intentUri, Intent.URI_INTENT_SCHEME);
             link.setSelector(null);
-            link.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            link.setPackage(c.pkg);                         // the platform then starts that app's activity or nothing
+            link.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);   // replaces any flags the row set (URI grants, launchFlags=)
             ResolveInfo ri = pm.resolveActivity(link, 0);
             if (ri != null && ri.activityInfo != null && c.pkg.equals(ri.activityInfo.packageName)) i = link;
         } catch (java.net.URISyntaxException | RuntimeException ex) {

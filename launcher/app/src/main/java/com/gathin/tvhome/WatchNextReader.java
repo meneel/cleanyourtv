@@ -26,7 +26,7 @@ final class WatchNextReader {
 
     static List<ContinueRules.Card> read(Context ctx, long nowMs, int maxAgeDays, int hidePercent, int max) {
         List<ContinueRules.Row> rows = new ArrayList<>();
-        try (Cursor c = ctx.getContentResolver().query(WATCH_NEXT, null, null, null, null)) {
+        try (Cursor c = open(ctx)) {
             if (c == null) return Collections.emptyList();
             int id = c.getColumnIndex("_id");
             int pkg = c.getColumnIndex("package_name");
@@ -57,6 +57,18 @@ final class WatchNextReader {
             return Collections.emptyList();
         }
         return ContinueRules.select(rows, nowMs, maxAgeDays, hidePercent, max);
+    }
+
+    /** Newest first, so the row cap drops the stale rows; the provider's own order if it refuses a sort order. */
+    private static Cursor open(Context ctx) {
+        try {
+            return ctx.getContentResolver().query(WATCH_NEXT, null, null, null, "last_engagement_time_utc_millis DESC");
+        } catch (SecurityException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            Log.w(TAG, "no sort order: " + e);
+            return ctx.getContentResolver().query(WATCH_NEXT, null, null, null, null);
+        }
     }
 
     private static String text(Cursor c, int column) {

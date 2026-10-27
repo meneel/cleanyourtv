@@ -89,4 +89,19 @@ public class PosterRulesTest {
         assertEquals(Arrays.asList("f1"), PosterRules.evict(files(60, 30, 50, 10, 40, 20), 10, 100));
         assertEquals(Arrays.asList("f1", "f2"), PosterRules.evict(files(60, 30, 50, 10, 40, 20), 10, 60));
     }
+
+    @Test
+    public void sampleSizeKeepsAnOrdinaryPosterSharpAndCapsADecodeBomb() {
+        long cap = 2_000_000L;
+        // a 1000x1500 poster for a 354x200 tile: halve while both sides stay at least tile size
+        assertEquals(2, PosterRules.sampleSize(1000, 1500, 354, 200, cap));
+        // already small: untouched
+        assertEquals(1, PosterRules.sampleSize(400, 300, 354, 200, cap));
+        // a 2 MB PNG can be 118000x339: the tile test alone would decode all 40 M pixels (80 MB or more)
+        int s = PosterRules.sampleSize(118000, 339, 354, 200, cap);
+        assertTrue("decoded pixels must stay under the cap", (118000L / s) * (339L / s) <= cap);
+        // no tile size known: still capped
+        int s2 = PosterRules.sampleSize(6000, 6000, 0, 0, cap);
+        assertTrue((6000L / s2) * (6000L / s2) <= cap);
+    }
 }
