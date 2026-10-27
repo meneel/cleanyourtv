@@ -9,6 +9,12 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Continue watching: reads the rows other apps publish to the TV's Watch Next list. A runtime permission,
+         granted with `pm grant com.gathin.tvhome android.permission.READ_TV_LISTINGS`; without it there is no row. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
+    <!-- Posters for the Continue-watching row, and nothing else: PosterCache is the only class that opens a
+         connection (OnlyPosterCacheOpensConnectionsTest). https only; continue_posters false makes no request. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Needed since Android 10 to read the Wi-Fi network name for the network pill. Never requested at
          runtime: build-and-install grants it with pm grant, so lint's Android 12 "ask for COARSE with
          FINE" rule does not apply here. -->

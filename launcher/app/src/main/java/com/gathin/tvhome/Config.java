@@ -211,6 +211,10 @@ final class Config {
     final int homeIdleClockMinutes;
     /** The dock band as light frosted glass like the pills (config.xml, dock_glass); false keeps the solid band. */
     final boolean dockGlass;
+    /** The Continue-watching row (config.xml continue_*, or a theme): shown, its card count, age and progress limits, posters. */
+    final boolean continueWatching;
+    final int continueMax, continueMaxAgeDays, continueHidePercent;
+    final boolean continuePosters;
     /** The dock band's padding equals the gap between its tiles (config.xml, dock_even_padding); false keeps the fixed padding. */
     final boolean dockEvenPadding;
     /** The dock band and its edge draw (dock_band); false leaves the tiles floating on the wallpaper. */
@@ -272,7 +276,9 @@ final class Config {
                    List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
                    boolean keyFilter, boolean dockGlass, String glowStyle, boolean wallpaperCaptions,
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
-                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly) {
+                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly,
+                   boolean continueWatching, int continueMax, int continueMaxAgeDays, int continueHidePercent,
+                   boolean continuePosters) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -368,6 +374,11 @@ final class Config {
         this.homeLongPressHome = homeLongPressHome;
         this.powerOnHomeAlways = powerOnHomeAlways;
         this.inputsConnectedOnly = inputsConnectedOnly;
+        this.continueWatching = continueWatching;
+        this.continueMax = continueMax;
+        this.continueMaxAgeDays = continueMaxAgeDays;
+        this.continueHidePercent = continueHidePercent;
+        this.continuePosters = continuePosters;
         this.wifiStatusWarnings = wifiStatusWarnings;
         this.topBarApps = Collections.unmodifiableList(topBarApps);
         this.showGreeting = showGreeting;
@@ -477,6 +488,11 @@ final class Config {
         boolean powerOnHomeAlways = res.getBoolean(R.bool.power_on_home_always);
         boolean inputsConnectedOnly = res.getBoolean(R.bool.inputs_connected_only);
         boolean dockGlass = res.getBoolean(R.bool.dock_glass);
+        boolean continueWatching = res.getBoolean(R.bool.continue_watching);
+        int continueMax = res.getInteger(R.integer.continue_max);
+        int continueMaxAgeDays = res.getInteger(R.integer.continue_max_age_days);
+        int continueHidePercent = res.getInteger(R.integer.continue_hide_percent);
+        boolean continuePosters = res.getBoolean(R.bool.continue_posters);
         boolean dockEvenPadding = res.getBoolean(R.bool.dock_even_padding);
         boolean dockBand = res.getBoolean(R.bool.dock_band);
         boolean cinematicDots = res.getBoolean(R.bool.cinematic_dots);
@@ -582,6 +598,13 @@ final class Config {
             powerOnHomeAlways = bool(json, "power_on_home_always", powerOnHomeAlways);
             inputsConnectedOnly = bool(json, "inputs_connected_only", inputsConnectedOnly);
             dockGlass = bool(json, "dock_glass", dockGlass);
+            continueWatching = bool(json, "continue_watching", continueWatching);
+            continueMax = integer(json, "continue_max", continueMax, ContinueRules.MIN_MAX, ContinueRules.MAX_MAX);
+            continueMaxAgeDays = integer(json, "continue_max_age_days", continueMaxAgeDays,
+                    ContinueRules.MIN_AGE_DAYS, ContinueRules.MAX_AGE_DAYS);
+            continueHidePercent = integer(json, "continue_hide_percent", continueHidePercent,
+                    ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT);
+            continuePosters = bool(json, "continue_posters", continuePosters);
             dockEvenPadding = bool(json, "dock_even_padding", dockEvenPadding);
             dockBand = bool(json, "dock_band", dockBand);
             cinematicDots = bool(json, "cinematic_dots", cinematicDots);
@@ -665,7 +688,11 @@ final class Config {
                 dockBand, cinematicDots, cinematicWhiteFocus, wifiStatusColor, cinematicScrim, cinematicArt, wallpaperMoods, gamepadPassthrough,
                 consumeVolumeKeys, powerOnHome, homeLongPressHome, wifiStatusWarnings, topBarApps, showGreeting, headerWhite, clockWallpaper,
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
-                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly);
+                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly,
+                continueWatching, ContinueRules.clamp(continueMax, ContinueRules.MIN_MAX, ContinueRules.MAX_MAX),
+                ContinueRules.clamp(continueMaxAgeDays, ContinueRules.MIN_AGE_DAYS, ContinueRules.MAX_AGE_DAYS),
+                ContinueRules.clamp(continueHidePercent, ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT),
+                continuePosters);
     }
 
     /**
