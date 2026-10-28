@@ -18,7 +18,6 @@ import android.renderscript.ScriptIntrinsicBlur;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -49,15 +48,17 @@ final class FeaturedCarousel {
     static final int SHARP = 0, SOFT = 1, HEAVY = 2;
 
     private static final String TAG = "TvHomeFeatured";
-    private static final long TURN_MS = 9000L, SLIDE_MS = 420L, FADE_MS = 260L, TEXT_OUT_MS = 130L, TEXT_IN_MS = 260L;
+    private static final long TURN_MS = 9000L, SLIDE_MS = 1000L, FADE_MS = 360L, TEXT_OUT_MS = 260L, TEXT_IN_MS = 640L;
     private static final int KEEP_SHARP = 2;
     /** Going up to the featured screen: the blur fades first, then the dock slides and the text returns. */
-    static final long SEQUENCE_MS = 240L;
+    static final long SEQUENCE_MS = FADE_MS;   // the dock waits for the blur (and the blur for the dock): one full-screen change at a time
     /** How much of the picture's height the blurred top and bottom bands cover. */
-    static final float EDGE_TOP = 0.26f, EDGE_BOTTOM = 0.30f;
+    static final float EDGE_TOP = 0.42f, EDGE_BOTTOM = 0.30f;
+    /** The mild blur the sharp picture's top and bottom edges fade into; used while baking only, then dropped. */
+    static final int EDGE_WIDTH = 768, EDGE_RADIUS = 14, EDGE_SHADE = 0x00;
     /** Blur copies: the size they are blurred at (width in pixels), the Gaussian radius (1 to 25) and the darkening. */
-    static final int SOFT_WIDTH = 384, SOFT_RADIUS = 7, SOFT_SHADE = 0x4D;
     static final int HEAVY_WIDTH = 128, HEAVY_RADIUS = 22, HEAVY_SHADE = 0x73;
+    static final int SOFT_WIDTH = HEAVY_WIDTH, SOFT_RADIUS = HEAVY_RADIUS, SOFT_SHADE = 0x4D;
 
     private final Activity activity;
     private final View root;
@@ -80,6 +81,8 @@ final class FeaturedCarousel {
     private boolean[] loading = new boolean[0];
     private int index, level = SHARP, generation, setGeneration;
     private boolean running, sliding;
+    private android.animation.ValueAnimator slideAnim;
+    private final android.graphics.Rect slideClip = new android.graphics.Rect();
     private Bitmap slideTarget;
     private final Runnable turn = new Runnable() {
         @Override
@@ -192,6 +195,9 @@ final class FeaturedCarousel {
     /** SHARP, SOFT or HEAVY. At most one overlay is blended at a time, and covered layers are dropped when it ends. */
     void setLevel(int newLevel, boolean animate) {
         final int old = level;
+        // Asked for the level it is already moving to (focus landing on the carousel right after enterFeatured set it):
+        // leave the running fade alone. Cancelling it here cut the blur away in one frame on the way up.
+        if (animate && old == newLevel) return;
         level = newLevel;
         final int g = ++generation;
         finishSlide();
@@ -225,20 +231,20 @@ final class FeaturedCarousel {
             soft.setVisibility(View.VISIBLE);
             if (old == SHARP) {
                 soft.setAlpha(0f);
-                soft.animate().alpha(1f).setDuration(FADE_MS).withEndAction(settle).start();
+                soft.animate().alpha(1f).setDuration(FADE_MS).setInterpolator(Motion.FADE).withEndAction(settle).start();
             } else {   // from heavy: the soft copy sits fully under the heavy one, which fades away
                 soft.setAlpha(1f);
                 heavy.setVisibility(View.VISIBLE);
-                heavy.animate().alpha(0f).setDuration(FADE_MS).withEndAction(settle).start();
+                heavy.animate().alpha(0f).setDuration(FADE_MS).setInterpolator(Motion.FADE).withEndAction(settle).start();
             }
         } else if (newLevel == HEAVY) {
             heavy.setVisibility(View.VISIBLE);
             heavy.setAlpha(0f);
-            heavy.animate().alpha(1f).setDuration(FADE_MS).withEndAction(settle).start();
+            heavy.animate().alpha(1f).setDuration(FADE_MS).setInterpolator(Motion.FADE).withEndAction(settle).start();
         } else {   // back to sharp: the overlay that is up fades away over the sharp picture
             ImageView top = old == HEAVY ? heavy : soft;
             top.setVisibility(View.VISIBLE);
-            top.animate().alpha(0f).setDuration(FADE_MS).withEndAction(settle).start();
+            top.animate().alpha(0f).setDuration(FADE_MS).setInterpolator(Motion.FADE).withEndAction(settle).start();
         }
     }
 
@@ -270,10 +276,14 @@ final class FeaturedCarousel {
         finishSlide();
         Runnable setText = () -> {
             if (shown != index) return;
-            tag.setText(t.tag.toUpperCase(java.util.Locale.getDefault()));
+            tag.setText(t.tag);
             title.setText(t.title);
-            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, FeaturedRules.titleSizeSp(t.title));
-            overview.setMaxLines(FeaturedRules.overviewLines(t.title));
+            final android.text.TextPaint tp = new android.text.TextPaint(title.getPaint());
+            final float scaled = activity.getResources().getDisplayMetrics().scaledDensity;
+            float avail = title.getWidth() > 0 ? title.getWidth() : 720 * density;
+            int sp = FeaturedRules.titleSizeSp(t.title, avail, (text, size) -> { tp.setTextSize(size * scaled); return tp.measureText(text); });
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp);
+            overview.setMaxLines(FeaturedRules.overviewLines(sp >= 38));
             meta.setText(FeaturedRules.meta(t));
             overview.setText(t.overview);
             providers.setText(FeaturedRules.providersLine(t.pkgs));
@@ -282,6 +292,7 @@ final class FeaturedCarousel {
         Bitmap next = sharp.get(shown);
         if (animate && level == SHARP && next != null) {
             // Slide: the new picture glides in over the old one, which drifts the other way a little. Both are opaque.
+            finishSlide();   // a turn pressed mid-slide lands the first one before the next begins
             float w = root.getWidth() > 0 ? root.getWidth() : 1920f;
             sliding = true;
             slideTarget = next;
@@ -289,12 +300,34 @@ final class FeaturedCarousel {
             paintBlurs(shown);   // the blurred copies must follow the title too, or the dock shows the previous title's blur
             art2.setTranslationX(direction * w);
             art2.setVisibility(View.VISIBLE);
-            art.animate().translationX(-direction * w * 0.25f).setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator(1.4f)).start();
-            art2.animate().translationX(0f).setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator(1.4f)).withEndAction(this::finishSlide).start();
+            // One driver moves both layers and clips the old picture to the part the new one has not covered, so the GPU
+            // fills one screen of pixels a frame instead of two.
+            final int dir = direction;
+            final int hgt = root.getHeight() > 0 ? root.getHeight() : 1080;
+            final float parallax = 0.20f * w;
+            slideAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+            slideAnim.setDuration(SLIDE_MS);
+            slideAnim.setInterpolator(Motion.SMOOTH);
+            slideAnim.addUpdateListener(an -> {
+                float p = (float) an.getAnimatedValue();
+                art2.setTranslationX(dir * w * (1f - p));
+                art.setTranslationX(-dir * parallax * p);
+                float left = dir > 0 ? parallax * p : w * p - parallax * p;
+                float right = dir > 0 ? w * (1f - p) + parallax * p : w - parallax * p;
+                slideClip.set(Math.round(left), 0, Math.round(right), hgt);
+                art.setClipBounds(slideClip);
+            });
+            slideAnim.addListener(new android.animation.AnimatorListenerAdapter() {
+                private boolean cancelled;
+                @Override public void onAnimationCancel(android.animation.Animator an) { cancelled = true; }
+                @Override public void onAnimationEnd(android.animation.Animator an) { if (!cancelled) finishSlide(); }
+            });
+            slideAnim.start();
             info.animate().cancel();
-            info.animate().alpha(0f).setDuration(TEXT_OUT_MS).withEndAction(() -> {
+            info.animate().alpha(0f).setDuration(TEXT_OUT_MS).setInterpolator(Motion.FADE).withEndAction(() -> {
                 setText.run();
-                info.animate().alpha(1f).setDuration(TEXT_IN_MS).start();
+                info.setTranslationY(8 * info.getResources().getDisplayMetrics().density);
+                info.animate().alpha(1f).translationY(0f).setDuration(TEXT_IN_MS).setInterpolator(Motion.FADE).start();
             }).start();
         } else {
             setText.run();
@@ -308,8 +341,8 @@ final class FeaturedCarousel {
     private void finishSlide() {
         if (!sliding) return;
         sliding = false;
-        art.animate().cancel();
-        art2.animate().cancel();
+        if (slideAnim != null) { slideAnim.cancel(); slideAnim = null; }
+        art.setClipBounds(null);
         art.setImageBitmap(slideTarget);
         paintBlurs(index);
         art.setTranslationX(0f);
@@ -361,7 +394,7 @@ final class FeaturedCarousel {
             // Baking draws gradients, scales and blurs bitmaps: off the main thread.
             baker.execute(() -> {
                 if (gen != setGeneration) return;
-                Bitmap s0 = softs[i], h0 = heavies[i];
+                Bitmap s0 = softs[i], h0 = heavies[i], e0 = null;
                 try {
                     if (s0 == null || h0 == null) rs = RenderScript.create(activity.getApplicationContext());
                 } catch (RuntimeException | LinkageError e) {
@@ -371,6 +404,7 @@ final class FeaturedCarousel {
                 try {
                     if (s0 == null) s0 = blurCopy(bitmap, SOFT_WIDTH, SOFT_RADIUS, SOFT_SHADE);
                     if (h0 == null) h0 = blurCopy(bitmap, HEAVY_WIDTH, HEAVY_RADIUS, HEAVY_SHADE);
+                    e0 = blurCopy(bitmap, EDGE_WIDTH, EDGE_RADIUS, EDGE_SHADE);
                 } finally {
                     if (rs != null) {
                         rs.destroy();   // its runtime is released the moment both blurs are made
@@ -379,7 +413,8 @@ final class FeaturedCarousel {
                 }
                 final Bitmap s = s0, h = h0;
                 // The sharp picture gets the soft blur drawn into its top and bottom edges, so the header and the dock read.
-                final Bitmap baked = bakeSharp(bitmap, s);
+                final Bitmap baked = bakeSharp(bitmap, e0);
+                if (e0 != null) e0.recycle();
                 ui.post(() -> {
                     if (gen != setGeneration || i >= loading.length) return;
                     loading[i] = false;

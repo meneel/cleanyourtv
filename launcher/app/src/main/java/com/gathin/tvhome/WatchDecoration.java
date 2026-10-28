@@ -21,11 +21,11 @@ final class WatchDecoration extends RecyclerView.ItemDecoration {
     WatchDecoration(Context ctx, AppAdapter adapter) {
         this.adapter = adapter;
         this.density = ctx.getResources().getDisplayMetrics().density;
-        this.continueHeading = ctx.getString(R.string.continue_heading).toUpperCase(Locale.getDefault());
-        this.recsHeading = ctx.getString(R.string.recommended_heading).toUpperCase(Locale.getDefault());
+        this.continueHeading = ctx.getString(R.string.continue_heading);
+        this.recsHeading = ctx.getString(R.string.recommended_heading);
         paint.setTypeface(UiFont.get(ctx, R.string.font_medium));
-        paint.setTextSize(12 * density);
-        paint.setLetterSpacing(0.14f);
+        paint.setTextSize(18 * density);
+        paint.setLetterSpacing(0.01f);
         paint.setColor(0xB3FFFFFF);
     }
 

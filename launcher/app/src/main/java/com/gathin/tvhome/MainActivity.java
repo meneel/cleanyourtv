@@ -174,7 +174,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float ambientMax = 1f;
     private boolean closeApps, peekListenerAdded, gridAnimating;
     private long lastCloseScheduled;
-    private static final long SLIDE_MS = 360L;
+    private static final long SLIDE_MS = 520L;
     /** New featured titles that arrived while the featured screen was up: applied once it is not (never swap under the viewer). */
     private List<FeaturedRules.Title> pendingFeatured;
     private final Runnable hourlyRefresh = new Runnable() {
@@ -1169,6 +1169,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (featured == null || !featured.hasTitles() || reordering || openPopup != null) return;
         featuredMode = true;
         featuredEnterPending = false;
+        // Set now, not in the post below: focus moving to the carousel lays the grid out first, and the layout listener
+        // snaps the grid to the peek position at once unless an animation is already marked as running (no slide up).
+        if (animate && animations && !reducedMotion) gridAnimating = true;
         ambient.animate().cancel();
         ambient.setAlpha(0f);   // cut, not faded: a second full-screen fade beside the blur's is what made this transition stutter
         hideHero();
@@ -1190,7 +1193,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             });
         }
         grid.post(() -> {
-            if (!featuredMode) return;
+            if (!featuredMode) { gridAnimating = false; return; }
             float to = peekTranslation();
             grid.animate().cancel();
             if (animate && animations && !reducedMotion) {
@@ -1238,7 +1241,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glass.animate().cancel();
         if (show) glass.setVisibility(View.VISIBLE);
         if (animate && animations && !reducedMotion) {
-            glass.animate().setStartDelay(show ? FeaturedCarousel.SEQUENCE_MS : 0L).alpha(show ? 1f : 0f).setDuration(360).withEndAction(() -> { if (!show) glass.setVisibility(View.GONE); }).start();
+            glass.animate().setStartDelay(show ? FeaturedCarousel.SEQUENCE_MS : 0L).alpha(show ? 1f : 0f).setDuration(420).setInterpolator(Motion.FADE).withEndAction(() -> { if (!show) glass.setVisibility(View.GONE); }).start();
         } else {
             glass.setAlpha(show ? 1f : 0f);
             if (!show) glass.setVisibility(View.GONE);
@@ -1268,7 +1271,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int[] at = new int[2];
         vh.itemView.getLocationInWindow(at);
         float tileTopAtRest = at[1] - grid.getTranslationY();
-        return Math.max(0f, rootH - 70 * density - tileTopAtRest);
+        return Math.max(0f, rootH - 54 * density - tileTopAtRest);
     }
 
     /** The carousel's titles: the cached ones at once, then a fresh set from TMDB when the cache is old. Worker thread. */

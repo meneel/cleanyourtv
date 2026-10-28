@@ -166,9 +166,32 @@ final class FeaturedRules {
         return 36;
     }
 
+    /** The width in px of a text at a size in sp, measured with the real font. */
+    interface Measure {
+        float width(String text, int sp);
+    }
+
+    /**
+     * The largest size from 58 down to 38 sp at which the whole title fits on one line of {@code availablePx}; a title
+     * too long even at 38 gets 36 and may take a second line. Measured, not counted: a letter count wrapped
+     * "Pirates of the Caribbean: At World's End" with "End" alone on its second line.
+     */
+    static int titleSizeSp(String title, float availablePx, Measure measure) {
+        if (title == null || availablePx <= 0f || measure == null) return titleSizeSp(title);
+        for (int sp = 58; sp >= 38; sp -= 4) {
+            if (measure.width(title, sp) <= availablePx) return sp;
+        }
+        return 36;
+    }
+
     /** Summary lines to show: three under a one-line title, two under a longer one (which takes a second line). */
     static int overviewLines(String title) {
         return titleSizeSp(title) == 58 ? 3 : 2;
+    }
+
+    /** Summary lines for a measured size: three under a one-line title, two under one that wraps. */
+    static int overviewLines(boolean oneLine) {
+        return oneLine ? 3 : 2;
     }
 
     static String meta(Title t) {

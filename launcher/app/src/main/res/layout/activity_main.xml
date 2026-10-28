@@ -80,9 +80,9 @@
                 android:id="@+id/featTag"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.2"
+                android:letterSpacing="0.01"
                 android:textColor="#FF7CD4FF"
-                android:textSize="15sp"
+                android:textSize="19sp"
                 android:fontFamily="@string/font_medium" />
 
             <TextView
@@ -148,8 +148,8 @@
             android:layout_marginBottom="104dp"
             android:text="@string/featured_hint"
             android:textColor="#B3FFFFFF"
-            android:textSize="14sp"
-            android:letterSpacing="0.06"
+            android:textSize="16sp"
+            android:letterSpacing="0.01"
             android:fontFamily="@string/font_regular" />
     </FrameLayout>
 
@@ -313,11 +313,10 @@
                     android:singleLine="true"
                     android:ellipsize="end"
                     android:layout_marginStart="4dp"
-                    android:textColor="#8CFFFFFF"
-                    android:textSize="12sp"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="17sp"
                     android:fontFamily="@string/font_medium"
-                    android:letterSpacing="0.22"
-                    android:textAllCaps="true" />
+                    android:letterSpacing="0.01" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -397,10 +396,9 @@
                             android:format12Hour="@string/date_format_home"
                             android:format24Hour="@string/date_format_home"
                             android:textColor="#A6FFFFFF"
-                            android:textSize="14sp"
+                            android:textSize="18sp"
                             android:fontFamily="@string/font_regular"
-                            android:letterSpacing="0.14"
-                            android:textAllCaps="true" />
+                            android:letterSpacing="0.01" />
 
                         <!-- Lunar date ("Lunar 13/9 · Year of the Horse"), shown when lunar_date is on. -->
                         <TextView
@@ -428,10 +426,9 @@
                             android:singleLine="true"
                             android:ellipsize="end"
                             android:textColor="#A6FFFFFF"
-                            android:textSize="14sp"
+                            android:textSize="18sp"
                             android:fontFamily="@string/font_regular"
-                            android:letterSpacing="0.14"
-                            android:textAllCaps="true"
+                            android:letterSpacing="0.01"
                             android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
@@ -544,7 +541,7 @@
     <View
         android:id="@+id/peekGlass"
         android:layout_width="match_parent"
-        android:layout_height="150dp"
+        android:layout_height="96dp"
         android:layout_gravity="bottom"
         android:background="@drawable/peek_glass"
         android:alpha="0"

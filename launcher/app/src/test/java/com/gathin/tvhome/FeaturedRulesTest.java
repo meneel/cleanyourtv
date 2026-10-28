@@ -103,4 +103,16 @@ public class FeaturedRulesTest {
         assertTrue(Net.allowed(FeaturedRules.providersUrl("tv", 1399)));
         assertTrue(Net.allowed(FeaturedRules.tvSearchUrl("How I Met Your Mother")));
     }
+
+    @Test
+    public void measuredTitleSizeKeepsOneLineWhenItFits() {
+        FeaturedRules.Measure half = (text, sp) -> text.length() * sp * 0.5f;   // a fake font: half an em per letter
+        String pirates = "Pirates of the Caribbean: At World's End";   // 40 letters
+        int sp = FeaturedRules.titleSizeSp(pirates, 1000f, half);
+        assertTrue(half.width(pirates, sp) <= 1000f);                   // fits on one line, so no orphan word
+        assertTrue(sp >= 46 && sp < 58);
+        assertEquals(58, FeaturedRules.titleSizeSp("Dune", 1000f, half));
+        assertEquals(36, FeaturedRules.titleSizeSp("Harry Potter and the Deathly Hallows: Part 2 Extended Edition", 1000f, half));
+        assertEquals(44, FeaturedRules.titleSizeSp("Harry Potter and the Prisoner of Azkaban", 0f, half));   // width unknown: the length rule
+    }
 }

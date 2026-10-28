@@ -13,6 +13,12 @@ final class Motion {
     /** The spring stops once it is within this many pixels of its target. */
     static final float REDUCED_MIN_CHANGE = 2f;
 
+    /** For moves: a gentle start and a long soft landing, no overshoot (CSS "ease"). The earlier quint curve did 60% of
+     *  the move in its first 15% and read as abrupt. */
+    static final android.view.animation.Interpolator SMOOTH = new android.view.animation.PathInterpolator(0.25f, 0.1f, 0.25f, 1f);
+    /** For fades: slow in, slow out, so a cross-fade has no visible start or end. */
+    static final android.view.animation.Interpolator FADE = new android.view.animation.PathInterpolator(0.4f, 0f, 0.2f, 1f);
+
     private Motion() {
     }
 
