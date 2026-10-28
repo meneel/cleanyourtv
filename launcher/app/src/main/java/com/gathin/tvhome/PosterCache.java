@@ -39,11 +39,30 @@ final class PosterCache {
 
     private static final String TAG = "TvHomePoster";
     private static final int CONNECT_MS = 5000, READ_MS = 5000, MAX_BYTES = 2 * 1024 * 1024;
-    private static final int CACHE_FILES = 24;
-    private static final long CACHE_BYTES = 24L * 1024 * 1024;
+    private static final int CACHE_FILES = 48;
+    private static final long CACHE_BYTES = 64L * 1024 * 1024;
     private static final long MAX_PIXELS = 40L * 1000 * 1000;
     /** What one poster may decode to (RGB_565, 2 bytes a pixel: 4 MB). */
     private static final long MAX_DECODED_PIXELS = 2L * 1000 * 1000;
+    /** How an image is fetched and decoded: the size it may be, the pixels it may decode to, and in what colour depth. */
+    private static final class Profile {
+        final int maxBytes;
+        final long maxPixels;
+        final Bitmap.Config config;
+        final boolean mutable;
+
+        Profile(int maxBytes, long maxPixels, Bitmap.Config config, boolean mutable) {
+            this.maxBytes = maxBytes;
+            this.maxPixels = maxPixels;
+            this.config = config;
+            this.mutable = mutable;
+        }
+    }
+
+    /** Posters and cards: small, 16-bit colour. */
+    private static final Profile SMALL = new Profile(MAX_BYTES, MAX_DECODED_PIXELS, Bitmap.Config.RGB_565, false);
+    /** Featured backdrops: up to 8 MB on the wire, a full 1080p picture in 32-bit colour, mutable so edges can be drawn in place. */
+    private static final Profile LARGE = new Profile(8 * 1024 * 1024, 2_400_000L, Bitmap.Config.ARGB_8888, true);
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler UI = new Handler(Looper.getMainLooper());
 
@@ -51,6 +70,15 @@ final class PosterCache {
     }
 
     static void load(Context ctx, String uri, int width, int height, Callback cb) {
+        load(ctx, uri, width, height, SMALL, cb);
+    }
+
+    /** A full-screen picture (the featured backdrops): 32-bit colour at up to 1080p, never downsampled below the screen. */
+    static void loadLarge(Context ctx, String uri, int width, int height, Callback cb) {
+        load(ctx, uri, width, height, LARGE, cb);
+    }
+
+    private static void load(Context ctx, String uri, int width, int height, Profile profile, Callback cb) {
         final int kind = PosterRules.kind(uri);
         if (kind == PosterRules.NONE) {
             cb.done(null);
@@ -60,7 +88,7 @@ final class PosterCache {
         IO.execute(() -> {
             Bitmap bitmap = null;
             try {
-                bitmap = fetch(app, uri, kind, width, height);
+                bitmap = fetch(app, uri, kind, width, height, profile);
             } catch (Exception | OutOfMemoryError e) {
                 Log.w(TAG, "a poster could not be loaded: " + e);
             }
@@ -69,11 +97,11 @@ final class PosterCache {
         });
     }
 
-    private static Bitmap fetch(Context ctx, String uri, int kind, int width, int height) throws IOException {
+    private static Bitmap fetch(Context ctx, String uri, int kind, int width, int height, Profile profile) throws IOException {
         byte[] data;
         if (kind == PosterRules.CONTENT) {
             try (InputStream in = ctx.getContentResolver().openInputStream(Uri.parse(uri))) {
-                data = readBounded(in);
+                data = readBounded(in, profile.maxBytes);
             }
         } else {
             File dir = new File(ctx.getCacheDir(), "posters");
@@ -81,18 +109,18 @@ final class PosterCache {
             if (file.isFile()) {
                 file.setLastModified(System.currentTimeMillis());
                 try (InputStream in = new FileInputStream(file)) {
-                    data = readBounded(in);
+                    data = readBounded(in, profile.maxBytes);
                 }
             } else {
-                data = download(uri);
+                data = download(uri, profile.maxBytes);
                 if (data != null) store(dir, file, data);
             }
         }
-        return data == null ? null : decode(data, width, height);
+        return data == null ? null : decode(data, width, height, profile);
     }
 
     /** The bytes of an https address, or null: not a 200, not an image, too big, or any network trouble. */
-    private static byte[] download(String uri) throws IOException {
+    private static byte[] download(String uri, int maxBytes) throws IOException {
         HttpURLConnection conn = null;
         try {
             conn = (HttpURLConnection) new URL(uri).openConnection();
@@ -105,9 +133,9 @@ final class PosterCache {
             if (conn.getResponseCode() != 200) return null;
             String type = conn.getContentType();
             if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("image/")) return null;
-            if (conn.getContentLengthLong() > MAX_BYTES) return null;
+            if (conn.getContentLengthLong() > maxBytes) return null;
             try (InputStream in = conn.getInputStream()) {
-                return readBounded(in);
+                return readBounded(in, maxBytes);
             }
         } finally {
             if (conn != null) conn.disconnect();
@@ -115,13 +143,13 @@ final class PosterCache {
     }
 
     /** All of the stream, or null when it is empty-handed or longer than the poster limit. */
-    private static byte[] readBounded(InputStream in) throws IOException {
+    private static byte[] readBounded(InputStream in, int maxBytes) throws IOException {
         if (in == null) return null;
         ByteArrayOutputStream out = new ByteArrayOutputStream(32 * 1024);
         byte[] buf = new byte[8192];
         int n;
         while ((n = in.read(buf)) > 0) {
-            if (out.size() + n > MAX_BYTES) return null;
+            if (out.size() + n > maxBytes) return null;
             out.write(buf, 0, n);
         }
         return out.size() == 0 ? null : out.toByteArray();
@@ -153,14 +181,15 @@ final class PosterCache {
         for (String name : PosterRules.evict(cached, CACHE_FILES, CACHE_BYTES)) new File(dir, name).delete();
     }
 
-    private static Bitmap decode(byte[] data, int width, int height) {
+    private static Bitmap decode(byte[] data, int width, int height, Profile profile) {
         BitmapFactory.Options o = new BitmapFactory.Options();
         o.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(data, 0, data.length, o);
         if (o.outWidth <= 0 || o.outHeight <= 0 || (long) o.outWidth * o.outHeight > MAX_PIXELS) return null;
         o.inJustDecodeBounds = false;
-        o.inSampleSize = PosterRules.sampleSize(o.outWidth, o.outHeight, width, height, MAX_DECODED_PIXELS);
-        o.inPreferredConfig = Bitmap.Config.RGB_565;
+        o.inSampleSize = PosterRules.sampleSize(o.outWidth, o.outHeight, width, height, profile.maxPixels);
+        o.inPreferredConfig = profile.config;
+        o.inMutable = profile.mutable;
         return BitmapFactory.decodeByteArray(data, 0, data.length, o);
     }
 }

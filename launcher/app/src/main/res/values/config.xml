@@ -308,6 +308,8 @@
          TV's apps (TMDB), turning every 8 s; OK opens the title's page with a button for each app that has it. Needs
          the same TMDB token as recommendations. Off by default; "featured": true in a theme. -->
     <bool name="featured">false</bool>
+    <!-- The landscape Home: a generated sky and mountains for the hour behind a normal Home (used when featured is off). -->
+    <bool name="home_landscape">false</bool>
     <!-- Close every app that is no longer on screen, except music apps (Spotify, YouTube Music, Amazon Music), a couple
          of seconds after Home comes back, to keep memory free on a 1 GB TV. Closes only what Android lets a launcher
          close (background processes). Off by default; "close_apps": true in a theme. -->

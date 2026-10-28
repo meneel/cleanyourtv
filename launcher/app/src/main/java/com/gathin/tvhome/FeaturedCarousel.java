@@ -47,6 +47,7 @@ import java.util.function.Consumer;
  */
 final class FeaturedCarousel {
     static final int SHARP = 0, SOFT = 1, HEAVY = 2;
+
     private static final String TAG = "TvHomeFeatured";
     private static final long TURN_MS = 9000L, SLIDE_MS = 420L, FADE_MS = 260L, TEXT_OUT_MS = 130L, TEXT_IN_MS = 260L;
     private static final int KEEP_SHARP = 2;
@@ -351,7 +352,7 @@ final class FeaturedCarousel {
         loading[i] = true;
         final String url = titles.get(i).backdrop;
         final int gen = setGeneration;
-        PosterCache.load(activity, url, 1280, 720, bitmap -> {
+        PosterCache.loadLarge(activity, url, 1920, 1080, bitmap -> {
             if (gen != setGeneration || i >= loading.length) return;
             if (bitmap == null || !titles.get(i).backdrop.equals(url)) {
                 loading[i] = false;
@@ -397,7 +398,7 @@ final class FeaturedCarousel {
     /** A copy of the picture with the three dark edges (left for the text, bottom for the dock, top for the header) drawn in. */
     static Bitmap bakeSharp(Bitmap src, Bitmap softBlur) {
         try {
-            Bitmap out = src.copy(Bitmap.Config.RGB_565, true);
+            Bitmap out = src.isMutable() ? src : src.copy(Bitmap.Config.ARGB_8888, true);   // drawn on in place: no second 8 MB copy
             if (out == null) return null;
             Canvas c = new Canvas(out);
             int w = out.getWidth(), h = out.getHeight();
@@ -424,7 +425,14 @@ final class FeaturedCarousel {
             c.drawRect(0, 0, w, h, p);
             p.setShader(new LinearGradient(0, 0, 0, h * 0.24f, new int[]{0xB3000000, 0x00000000}, null, Shader.TileMode.CLAMP));
             c.drawRect(0, 0, w, h, p);
-            return out;
+            // Resident copy: 16-bit colour drawn with dithering (no banding in the dark gradients), half the memory of the
+            // 32-bit picture it was baked on, which is dropped here.
+            Bitmap resident = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565);
+            Paint dither = new Paint();
+            dither.setDither(true);
+            new Canvas(resident).drawBitmap(out, 0, 0, dither);
+            out.recycle();
+            return resident;
         } catch (RuntimeException | OutOfMemoryError e) {
             return null;
         }

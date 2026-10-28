@@ -41,7 +41,7 @@ final class Config {
     static final String WALLPAPER_NAME = "wallpaper.jpg";
     static final String SETTINGS_NAME = "launcher_settings";
     /** Home-screen switches the Launcher settings screen can flip; they overlay the theme like the other on-TV choices. */
-    static final String[] HOME_KEYS = {"continue_watching", "weather", "weather_fahrenheit", "dock_band", "cinematic_home", "now_playing", "recommendations", "featured", "close_apps"};
+    static final String[] HOME_KEYS = {"continue_watching", "weather", "weather_fahrenheit", "dock_band", "cinematic_home", "now_playing", "recommendations", "featured", "close_apps", "home_page"};
 
     static void clearHomeChoices(SharedPreferences.Editor editor) {
         for (String key : HOME_KEYS) editor.remove(key);
@@ -229,6 +229,8 @@ final class Config {
     final boolean recommendations;
     /** The Featured carousel above the dock (config.xml featured); needs files/tmdb_token. */
     final boolean featured;
+    /** The landscape Home (config.xml home_landscape, or the on-TV Home page choice): a generated scene behind a normal Home. */
+    final boolean landscape;
     /** Close every app that is no longer on screen except music apps (config.xml close_apps). */
     final boolean closeApps;
     final String weatherCity;
@@ -296,7 +298,7 @@ final class Config {
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly,
                    boolean continueWatching, int continueMax, int continueMaxAgeDays, int continueHidePercent,
-                   boolean continuePosters, boolean weather, boolean weatherIp, boolean weatherFahrenheit, String weatherCity, double weatherLat, double weatherLon, boolean nowPlaying, boolean recommendations, boolean featured, boolean closeApps) {
+                   boolean continuePosters, boolean weather, boolean weatherIp, boolean weatherFahrenheit, String weatherCity, double weatherLat, double weatherLon, boolean nowPlaying, boolean recommendations, boolean featured, boolean closeApps, boolean landscape) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -403,6 +405,7 @@ final class Config {
         this.nowPlaying = nowPlaying;
         this.recommendations = recommendations;
         this.featured = featured;
+        this.landscape = landscape;
         this.closeApps = closeApps;
         this.weatherCity = weatherCity;
         this.weatherLat = weatherLat;
@@ -527,6 +530,7 @@ final class Config {
         boolean nowPlaying = res.getBoolean(R.bool.now_playing);
         boolean recommendations = res.getBoolean(R.bool.recommendations);
         boolean featured = res.getBoolean(R.bool.featured);
+        boolean landscape = res.getBoolean(R.bool.home_landscape);
         boolean closeApps = res.getBoolean(R.bool.close_apps);
         String weatherCity = res.getString(R.string.weather_city).trim();
         double weatherLat = Double.parseDouble(res.getString(R.string.weather_lat));
@@ -649,6 +653,7 @@ final class Config {
             nowPlaying = bool(json, "now_playing", nowPlaying);
             recommendations = bool(json, "recommendations", recommendations);
             featured = bool(json, "featured", featured);
+            landscape = bool(json, "home_landscape", landscape);
             closeApps = bool(json, "close_apps", closeApps);
             weatherCity = string(json, "weather_city", weatherCity);
             weatherLat = json.optDouble("weather_lat", weatherLat);
@@ -696,6 +701,13 @@ final class Config {
         nowPlaying = choices.getBoolean("now_playing", nowPlaying);
         recommendations = choices.getBoolean("recommendations", recommendations);
         featured = choices.getBoolean("featured", featured);
+        // The on-TV Home page choice ("featured", "landscape" or "classic") settles both; a theme only sets the default.
+        String homePage = choices.getString("home_page", null);
+        if (homePage != null) {
+            featured = "featured".equals(homePage);
+            landscape = "landscape".equals(homePage);
+        }
+        if (featured) landscape = false;
         closeApps = choices.getBoolean("close_apps", closeApps);
         dockBand = choices.getBoolean("dock_band", dockBand);
         cinematic = choices.getBoolean("cinematic_home", cinematic);
@@ -749,7 +761,7 @@ final class Config {
                 continueWatching, ContinueRules.clamp(continueMax, ContinueRules.MIN_MAX, ContinueRules.MAX_MAX),
                 ContinueRules.clamp(continueMaxAgeDays, ContinueRules.MIN_AGE_DAYS, ContinueRules.MAX_AGE_DAYS),
                 ContinueRules.clamp(continueHidePercent, ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT),
-                continuePosters, weather, weatherIp, weatherFahrenheit, weatherCity, weatherLat, weatherLon, nowPlaying, recommendations, featured, closeApps);
+                continuePosters, weather, weatherIp, weatherFahrenheit, weatherCity, weatherLat, weatherLon, nowPlaying, recommendations, featured, closeApps, landscape);
     }
 
     /**

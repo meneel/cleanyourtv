@@ -9,7 +9,9 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.graphics.Bitmap;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -37,8 +39,9 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView advancedChoice;
     private TextView followThemeChoice;
     private TextView openOnStartChoice;
-    private TextView nowPlayingChoice, closeAppsChoice, featuredChoice, recsChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
-    private boolean nowPlayingOn, closeAppsOn, featuredOn, recsOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
+    private TextView nowPlayingChoice, closeAppsChoice, homePageChoice, recsChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
+    private String homePage = "classic";
+    private boolean nowPlayingOn, closeAppsOn, recsOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
     private int columns;
     private int rowsBelowDock;
     private int dockOpacity;
@@ -49,6 +52,7 @@ public final class LauncherSettingsActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_launcher_settings);
+        buildBackdrop();
         choices = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
         Config config = Config.load(this);
         View reorderChoice = findViewById(R.id.reorderChoice);
@@ -65,10 +69,16 @@ public final class LauncherSettingsActivity extends Activity {
         continueOn = config.continueWatching;
         nowPlayingOn = config.nowPlaying;
         recsOn = config.recommendations;
-        featuredOn = config.featured;
+        homePage = config.featured ? "featured" : config.landscape ? "landscape" : "classic";
         closeAppsOn = config.closeApps;
         closeAppsChoice = homeToggle(R.id.closeAppsChoice, "close_apps", () -> closeAppsOn = !closeAppsOn, () -> closeAppsOn);
-        featuredChoice = homeToggle(R.id.featuredChoice, "featured", () -> featuredOn = !featuredOn, () -> featuredOn);
+        homePageChoice = findViewById(R.id.homePageChoice);
+        homePageChoice.setOnClickListener(v -> {
+            homePage = "featured".equals(homePage) ? "landscape" : "landscape".equals(homePage) ? "classic" : "featured";
+            choices.edit().putString("home_page", homePage).apply();
+            changed();
+            refresh();
+        });
         recsChoice = homeToggle(R.id.recsChoice, "recommendations", () -> recsOn = !recsOn, () -> recsOn);
         nowPlayingChoice = homeToggle(R.id.nowPlayingChoice, "now_playing", () -> nowPlayingOn = !nowPlayingOn, () -> nowPlayingOn);
         weatherOn = config.weather;
@@ -173,7 +183,7 @@ public final class LauncherSettingsActivity extends Activity {
             continueOn = current.continueWatching;
             nowPlayingOn = current.nowPlaying;
             recsOn = current.recommendations;
-            featuredOn = current.featured;
+            homePage = current.featured ? "featured" : current.landscape ? "landscape" : "classic";
             closeAppsOn = current.closeApps;
             weatherOn = current.weather;
             fahrenheit = current.weatherFahrenheit;
@@ -189,8 +199,10 @@ public final class LauncherSettingsActivity extends Activity {
         findViewById(R.id.tvSettingsChoice).setOnClickListener(v ->
                 open(SystemSettings.intent(this, Settings.ACTION_SETTINGS)));
         refresh();
-        if (config.launcherSettingsButton) reorderChoice.requestFocus();
-        else columnChoices[Math.max(0, Math.min(columns - 4, 3))].requestFocus();
+        setUpNavigation();
+        roundPane();
+        scaleOnFocus(findViewById(android.R.id.content));
+        findViewById(R.id.navLayout).requestFocus();
     }
 
     /** A Home-screen switch: flips the value, saves it as an on-TV choice over the theme, and tells Home to rebuild. */
@@ -203,6 +215,85 @@ public final class LauncherSettingsActivity extends Activity {
             refresh();
         });
         return row;
+    }
+
+    /** The settings picture: the launcher's generated landscape for the hour, blurred, behind a dark veil. */
+    private void buildBackdrop() {
+        final ImageView backdrop = findViewById(R.id.settingsBackdrop);
+        final int hour = java.time.LocalTime.now().getHour();
+        final long day = java.time.LocalDate.now().toEpochDay();
+        new Thread(() -> {
+            Bitmap scene = LandscapeArt.render(480, 270, hour, day);
+            int[] px = new int[480 * 270];
+            scene.getPixels(px, 0, 480, 0, 0, 480, 270);
+            BoxBlur.blur(px, 480, 270, 9, 3);
+            scene.setPixels(px, 0, 480, 0, 0, 480, 270);
+            runOnUiThread(() -> {
+                if (!isDestroyed()) backdrop.setImageBitmap(scene);
+            });
+        }, "settings-backdrop").start();
+    }
+
+    /** The left menu: focusing a section shows its panel; OK moves into it. */
+    private void setUpNavigation() {
+        final int[] navIds = {R.id.navLayout, R.id.navHome, R.id.navMotion, R.id.navSystem};
+        final int[] sectionIds = {R.id.sectionLayout, R.id.sectionHome, R.id.sectionMotion, R.id.sectionSystem};
+        for (int i = 0; i < navIds.length; i++) {
+            final int index = i;
+            View nav = findViewById(navIds[i]);
+            nav.setOnFocusChangeListener((v, has) -> {
+                if (has) showSection(index, navIds, sectionIds);
+                v.animate().scaleX(has ? 1.03f : 1f).scaleY(has ? 1.03f : 1f).setDuration(120).start();
+            });
+            nav.setOnClickListener(v -> {
+                View first = firstFocusableIn(findViewById(sectionIds[index]));
+                if (first != null) first.requestFocus();
+            });
+        }
+        showSection(0, navIds, sectionIds);
+    }
+
+    private void showSection(int index, int[] navIds, int[] sectionIds) {
+        for (int i = 0; i < sectionIds.length; i++) {
+            findViewById(sectionIds[i]).setVisibility(i == index ? View.VISIBLE : View.GONE);
+            findViewById(navIds[i]).setActivated(i == index);
+        }
+    }
+
+    private static View firstFocusableIn(View v) {
+        if (v.getVisibility() != View.VISIBLE) return null;
+        if (v.isFocusable() && !(v instanceof android.view.ViewGroup)) return v;
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View f = firstFocusableIn(g.getChildAt(i));
+                if (f != null) return f;
+            }
+        }
+        return null;
+    }
+
+    /** A focused row grows a touch, like a launcher tile; cheap on a screen that does not otherwise move. */
+    private void scaleOnFocus(View v) {
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) scaleOnFocus(g.getChildAt(i));
+        } else if (v.isFocusable() && v.getOnFocusChangeListener() == null) {
+            v.setOnFocusChangeListener((view, has) -> view.animate().scaleX(has ? 1.015f : 1f).scaleY(has ? 1.015f : 1f).setDuration(110).start());
+        }
+    }
+
+    /** Clips the panel's contents to its rounded corners, so scrolled rows are cut by the curve and not by a square edge. */
+    private void roundPane() {
+        View pane = (View) findViewById(R.id.sectionLayout).getParent().getParent();
+        final float radius = 34f * getResources().getDisplayMetrics().density;
+        pane.setClipToOutline(true);
+        pane.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+            }
+        });
     }
 
     private void reverseRow(TextView[] views) {
@@ -342,7 +433,7 @@ public final class LauncherSettingsActivity extends Activity {
         openOnStartChoice.setText(accentValue(getString(R.string.open_on_start_state, openOnStartLabel())));
         toggle(nowPlayingChoice, getString(R.string.now_playing_state), nowPlayingOn);
         toggle(continueChoice, getString(R.string.continue_state), continueOn);
-        toggle(featuredChoice, getString(R.string.featured_state), featuredOn);
+        homePageChoice.setText(accentValue(getString(R.string.home_page_state, getString("featured".equals(homePage) ? R.string.home_page_featured : "landscape".equals(homePage) ? R.string.home_page_landscape : R.string.home_page_classic))));
         toggle(closeAppsChoice, getString(R.string.close_apps_state), closeAppsOn);
         toggle(recsChoice, getString(R.string.recommendations_state), recsOn);
         toggle(weatherChoice, getString(R.string.weather_state), weatherOn);

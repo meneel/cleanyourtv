@@ -257,6 +257,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean dockRow;
     private boolean continueWatching, recommendations;
     private FeaturedCarousel featured;
+    private LandscapeBackdrop landscape;
     /** True while the featured screen is up and the dock only peeks up from the bottom; false once the dock is up. */
     private boolean featuredMode;
     private boolean featuredEnterPending;
@@ -447,6 +448,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         continueWatching = cfg.continueWatching;
         recommendations = cfg.recommendations;
         if (cfg.featured) getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus, newFocus) -> updateFeaturedLevel(newFocus));
+        if (cfg.landscape) {
+            landscape = new LandscapeBackdrop(this, findViewById(R.id.featuredFull));
+            findViewById(R.id.sky).setVisibility(View.GONE);   // covered by the scene
+            findViewById(R.id.heroScrim).setVisibility(View.GONE);
+        }
         if (cfg.featured) featured = new FeaturedCarousel(this, findViewById(R.id.featuredFull), t -> startActivity(TitleActivity.intent(this, t)));
         continueMax = cfg.continueMax;
         continueMaxAgeDays = cfg.continueMaxAgeDays;
@@ -488,7 +494,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
         ambientGlow = cfg.ambientGlow;
-        ambientMax = cfg.featured ? 0.40f : 1f;   // over the featured picture the glow is a quiet tint, not a wash
+        ambientMax = (cfg.featured || cfg.landscape) ? 0.40f : 1f;   // over the featured picture the glow is a quiet tint, not a wash
         closeApps = cfg.closeApps;
         appGlow = cfg.appGlow;
         if (!ambientGlow) ambient.setVisibility(View.GONE);
@@ -505,7 +511,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroDotsShown = cfg.cinematicDots;
         cinematicWhiteFocus = cfg.cinematicWhiteFocus;
         // The featured screen is the backdrop (sharp, then blurred behind the dock): the focused app's artwork would fight it.
-        heroArtAlpha = cfg.featured ? 0f : cfg.cinematicArt / 100f;
+        heroArtAlpha = (cfg.featured || cfg.landscape) ? 0f : cfg.cinematicArt / 100f;
         if (cinematic) setUpCinematicShelf(cfg.cinematicScrim);
         // dock_title false: the name above the dock (and the cinematic lines under it) never shows; the glow
         // still follows the dock.
@@ -1013,6 +1019,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refreshWeather();
         refreshRecs();
         refreshFeatured();
+        if (landscape != null) {
+            landscape.start();
+            wallpaperPlayer.releaseForMemoryPressure();
+        }
         root.removeCallbacks(hourlyRefresh);
         root.postDelayed(hourlyRefresh, 10 * 60 * 1000L);
         // Close what is no longer on screen. Two things hold an app above the tier an ordinary app may close: a running
@@ -1076,7 +1086,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (showStats) startStats();
         sky.update();
         // With the featured screen up the wallpaper is covered; do not decode and hold a 1080p picture nobody sees.
-        if (featured != null && featured.hasTitles()) wallpaperPlayer.releaseForMemoryPressure();
+        if ((featured != null && featured.hasTitles()) || landscape != null) wallpaperPlayer.releaseForMemoryPressure();
         else wallpaperPlayer.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
         if (festive && diya != null) {
@@ -1209,7 +1219,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.animate().cancel();
         if (animate && animations && !reducedMotion) {
             gridAnimating = true;
-            grid.animate().setStartDelay(0).translationY(0f).setDuration(SLIDE_MS).setInterpolator(new android.view.animation.PathInterpolator(0.22f, 0.0f, 0.12f, 1.0f))
+            grid.animate().setStartDelay(FeaturedCarousel.SEQUENCE_MS).translationY(0f).setDuration(SLIDE_MS).setInterpolator(new android.view.animation.PathInterpolator(0.22f, 0.0f, 0.12f, 1.0f))
                     .withEndAction(() -> {
                         gridAnimating = false;
                         focus.run();
@@ -1468,6 +1478,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onStop() {
         if (featured != null) featured.release();   // every backdrop bitmap and the RenderScript context: Home is not on screen
+        if (landscape != null) landscape.release();
         super.onStop();
         started = false;
         unregisterReceiver(timeReceiver);
@@ -1488,6 +1499,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // process in the foreground; never blank the screen the owner is looking at.
         if (!MemoryTrimPolicy.shouldRelease(level, started)) return;
         if (featured != null) featured.release();
+        if (landscape != null) landscape.release();
         adapter.clear();
         // Detach the adapter too: with Home stopped no layout pass runs, so the tile views (and the bitmaps
         // they hold) would stay attached until Home comes back. setAdapter(null) recycles them now.
