@@ -12,7 +12,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** The launcher holds INTERNET for posters only: no class but PosterCache may open a connection. */
+/** The launcher holds INTERNET for posters and three text lookups: only PosterCache and Net may open a connection. */
 public class OnlyPosterCacheOpensConnectionsTest {
     private static final String[] NEEDLES = {"openConnection(", "HttpURLConnection", "HttpsURLConnection",
         "new Socket(", "SocketFactory", "OkHttp", "DefaultHttpClient"};
@@ -23,7 +23,7 @@ public class OnlyPosterCacheOpensConnectionsTest {
             if (kids != null) for (File kid : kids) scan(kid, offenders);
             return;
         }
-        if (!f.getName().endsWith(".java") || f.getName().equals("PosterCache.java")) return;
+        if (!f.getName().endsWith(".java") || f.getName().equals("PosterCache.java") || f.getName().equals("Net.java")) return;
         String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
         for (String needle : NEEDLES) if (text.contains(needle)) offenders.add(f.getName() + ": " + needle);
     }
@@ -34,7 +34,7 @@ public class OnlyPosterCacheOpensConnectionsTest {
         assertTrue("run from the app module", src.isDirectory());
         List<String> offenders = new ArrayList<>();
         scan(src, offenders);
-        assertEquals("only PosterCache may open connections: " + offenders, 0, offenders.size());
+        assertEquals("only PosterCache and Net may open connections: " + offenders, 0, offenders.size());
     }
 
     /** Control arm: the scan must fire on a file that does open a connection. */

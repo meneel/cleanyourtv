@@ -215,6 +215,10 @@ final class Config {
     final boolean continueWatching;
     final int continueMax, continueMaxAgeDays, continueHidePercent;
     final boolean continuePosters;
+    /** A temperature line under the date (config.xml weather_*, or a theme): on, the place from the IP when weatherIp, else/fallback the coordinates. */
+    final boolean weather, weatherIp;
+    final String weatherCity;
+    final double weatherLat, weatherLon;
     /** The dock band's padding equals the gap between its tiles (config.xml, dock_even_padding); false keeps the fixed padding. */
     final boolean dockEvenPadding;
     /** The dock band and its edge draw (dock_band); false leaves the tiles floating on the wallpaper. */
@@ -278,7 +282,7 @@ final class Config {
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly,
                    boolean continueWatching, int continueMax, int continueMaxAgeDays, int continueHidePercent,
-                   boolean continuePosters) {
+                   boolean continuePosters, boolean weather, boolean weatherIp, String weatherCity, double weatherLat, double weatherLon) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -379,6 +383,11 @@ final class Config {
         this.continueMaxAgeDays = continueMaxAgeDays;
         this.continueHidePercent = continueHidePercent;
         this.continuePosters = continuePosters;
+        this.weather = weather;
+        this.weatherIp = weatherIp;
+        this.weatherCity = weatherCity;
+        this.weatherLat = weatherLat;
+        this.weatherLon = weatherLon;
         this.wifiStatusWarnings = wifiStatusWarnings;
         this.topBarApps = Collections.unmodifiableList(topBarApps);
         this.showGreeting = showGreeting;
@@ -493,6 +502,11 @@ final class Config {
         int continueMaxAgeDays = res.getInteger(R.integer.continue_max_age_days);
         int continueHidePercent = res.getInteger(R.integer.continue_hide_percent);
         boolean continuePosters = res.getBoolean(R.bool.continue_posters);
+        boolean weather = res.getBoolean(R.bool.weather);
+        boolean weatherIp = res.getBoolean(R.bool.weather_ip);
+        String weatherCity = res.getString(R.string.weather_city).trim();
+        double weatherLat = Double.parseDouble(res.getString(R.string.weather_lat));
+        double weatherLon = Double.parseDouble(res.getString(R.string.weather_lon));
         boolean dockEvenPadding = res.getBoolean(R.bool.dock_even_padding);
         boolean dockBand = res.getBoolean(R.bool.dock_band);
         boolean cinematicDots = res.getBoolean(R.bool.cinematic_dots);
@@ -605,6 +619,11 @@ final class Config {
             continueHidePercent = integer(json, "continue_hide_percent", continueHidePercent,
                     ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT);
             continuePosters = bool(json, "continue_posters", continuePosters);
+            weather = bool(json, "weather", weather);
+            weatherIp = bool(json, "weather_ip", weatherIp);
+            weatherCity = string(json, "weather_city", weatherCity);
+            weatherLat = json.optDouble("weather_lat", weatherLat);
+            weatherLon = json.optDouble("weather_lon", weatherLon);
             dockEvenPadding = bool(json, "dock_even_padding", dockEvenPadding);
             dockBand = bool(json, "dock_band", dockBand);
             cinematicDots = bool(json, "cinematic_dots", cinematicDots);
@@ -692,7 +711,7 @@ final class Config {
                 continueWatching, ContinueRules.clamp(continueMax, ContinueRules.MIN_MAX, ContinueRules.MAX_MAX),
                 ContinueRules.clamp(continueMaxAgeDays, ContinueRules.MIN_AGE_DAYS, ContinueRules.MAX_AGE_DAYS),
                 ContinueRules.clamp(continueHidePercent, ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT),
-                continuePosters);
+                continuePosters, weather, weatherIp, weatherCity, weatherLat, weatherLon);
     }
 
     /**

@@ -288,6 +288,16 @@
     <!-- Download posters over https (the launcher's only network use). false shows the app's icon instead and makes
          no network request. -->
     <bool name="continue_posters">true</bool>
+
+    <!-- A temperature line under the date ("Kolkata  31° · Partly cloudy"), from Open-Meteo (no key, no account).
+         The place comes from the TV's IP address (ipwho.is, once a day) when weather_ip is true; weather_city /
+         weather_lat / weather_lon are used when the lookup fails or weather_ip is false. Both services see the TV's
+         IP address. Off by default. Also settable as "weather": true in a theme's config.json. -->
+    <bool name="weather">false</bool>
+    <bool name="weather_ip">true</bool>
+    <string name="weather_city"></string>
+    <string name="weather_lat">0</string>
+    <string name="weather_lon">0</string>
     <!-- Draw the dock band and its edge. false leaves the tiles floating on the wallpaper (config.xml dock_band). -->
     <bool name="dock_band">true</bool>
     <!-- Every app in one row: the dock apps first, the rest after them, and the row scrolls sideways when focus
