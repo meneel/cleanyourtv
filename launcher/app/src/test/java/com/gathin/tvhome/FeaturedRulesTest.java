@@ -72,6 +72,16 @@ public class FeaturedRulesTest {
     }
 
     @Test
+    public void longTitlesGetASmallerSizeAndAShorterSummary() {
+        assertEquals(58, FeaturedRules.titleSizeSp("Dragon Ball Super: Beerus"));                       // 25 chars: one line at full size
+        assertEquals(44, FeaturedRules.titleSizeSp("Harry Potter and the Prisoner of Azkaban"));         // 40 chars: wraps
+        assertEquals(36, FeaturedRules.titleSizeSp("Harry Potter and the Deathly Hallows: Part 2 Extended Edition"));
+        assertEquals(58, FeaturedRules.titleSizeSp(null));
+        assertEquals(3, FeaturedRules.overviewLines("The Godfather"));
+        assertEquals(2, FeaturedRules.overviewLines("Harry Potter and the Prisoner of Azkaban"));
+    }
+
+    @Test
     public void discoverUrlsAreOnTheApiHostWithPipeEncoded() {
         String url = FeaturedRules.discoverUrl("movie", Arrays.asList(8, 119), "popularity.desc", "2025-01-01", 150, 6.5);
         assertTrue(url, url.contains("with_watch_providers=8%7C119"));

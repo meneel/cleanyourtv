@@ -139,6 +139,22 @@ final class FeaturedRules {
     }
 
     /** "★ 8.1 · Movie · 2025". */
+    /**
+     * The title's text size: 58 sp while it fits one line (about 27 characters in the 720 dp column), and smaller for
+     * longer ones, which wrap to two lines; the extra line must not push the block up into the header.
+     */
+    static int titleSizeSp(String title) {
+        int n = title == null ? 0 : title.length();
+        if (n <= 27) return 58;
+        if (n <= 46) return 44;
+        return 36;
+    }
+
+    /** Summary lines to show: three under a one-line title, two under a longer one (which takes a second line). */
+    static int overviewLines(String title) {
+        return titleSizeSp(title) == 58 ? 3 : 2;
+    }
+
     static String meta(Title t) {
         StringBuilder sb = new StringBuilder();
         if (t.rating > 0) sb.append("★ ").append(String.format(Locale.ROOT, "%.1f", t.rating)).append(" · ");

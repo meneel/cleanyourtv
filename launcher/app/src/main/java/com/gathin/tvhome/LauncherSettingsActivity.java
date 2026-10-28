@@ -37,8 +37,8 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView advancedChoice;
     private TextView followThemeChoice;
     private TextView openOnStartChoice;
-    private TextView nowPlayingChoice, featuredChoice, recsChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
-    private boolean nowPlayingOn, featuredOn, recsOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
+    private TextView nowPlayingChoice, closeAppsChoice, featuredChoice, recsChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
+    private boolean nowPlayingOn, closeAppsOn, featuredOn, recsOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
     private int columns;
     private int rowsBelowDock;
     private int dockOpacity;
@@ -66,6 +66,8 @@ public final class LauncherSettingsActivity extends Activity {
         nowPlayingOn = config.nowPlaying;
         recsOn = config.recommendations;
         featuredOn = config.featured;
+        closeAppsOn = config.closeApps;
+        closeAppsChoice = homeToggle(R.id.closeAppsChoice, "close_apps", () -> closeAppsOn = !closeAppsOn, () -> closeAppsOn);
         featuredChoice = homeToggle(R.id.featuredChoice, "featured", () -> featuredOn = !featuredOn, () -> featuredOn);
         recsChoice = homeToggle(R.id.recsChoice, "recommendations", () -> recsOn = !recsOn, () -> recsOn);
         nowPlayingChoice = homeToggle(R.id.nowPlayingChoice, "now_playing", () -> nowPlayingOn = !nowPlayingOn, () -> nowPlayingOn);
@@ -172,6 +174,7 @@ public final class LauncherSettingsActivity extends Activity {
             nowPlayingOn = current.nowPlaying;
             recsOn = current.recommendations;
             featuredOn = current.featured;
+            closeAppsOn = current.closeApps;
             weatherOn = current.weather;
             fahrenheit = current.weatherFahrenheit;
             dockBandOn = current.dockBand;
@@ -340,6 +343,7 @@ public final class LauncherSettingsActivity extends Activity {
         toggle(nowPlayingChoice, getString(R.string.now_playing_state), nowPlayingOn);
         toggle(continueChoice, getString(R.string.continue_state), continueOn);
         toggle(featuredChoice, getString(R.string.featured_state), featuredOn);
+        toggle(closeAppsChoice, getString(R.string.close_apps_state), closeAppsOn);
         toggle(recsChoice, getString(R.string.recommendations_state), recsOn);
         toggle(weatherChoice, getString(R.string.weather_state), weatherOn);
         weatherUnitChoice.setText(accentValue(getString(R.string.weather_unit_state, fahrenheit ? "\u00B0F" : "\u00B0C")));

@@ -260,6 +260,8 @@ final class FeaturedCarousel {
             if (shown != index) return;
             tag.setText(t.tag.toUpperCase(java.util.Locale.getDefault()));
             title.setText(t.title);
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, FeaturedRules.titleSizeSp(t.title));
+            overview.setMaxLines(FeaturedRules.overviewLines(t.title));
             meta.setText(FeaturedRules.meta(t));
             overview.setText(t.overview);
             providers.setText(FeaturedRules.providersLine(t.pkgs));
@@ -272,6 +274,7 @@ final class FeaturedCarousel {
             sliding = true;
             slideTarget = next;
             art2.setImageBitmap(next);
+            paintBlurs(shown);   // the blurred copies must follow the title too, or the dock shows the previous title's blur
             art2.setTranslationX(direction * w);
             art2.setVisibility(View.VISIBLE);
             art.animate().translationX(-direction * w * 0.25f).setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator(1.4f)).start();
@@ -296,6 +299,7 @@ final class FeaturedCarousel {
         art.animate().cancel();
         art2.animate().cancel();
         art.setImageBitmap(slideTarget);
+        paintBlurs(index);
         art.setTranslationX(0f);
         art2.setTranslationX(0f);
         art2.setVisibility(View.GONE);
@@ -305,6 +309,12 @@ final class FeaturedCarousel {
 
     private void paint(int i) {
         art.setImageBitmap(sharp.get(i));
+        paintBlurs(i);
+    }
+
+    /** The soft and heavy copies for title {@code i}: always the title that is shown, whichever way it got there. */
+    private void paintBlurs(int i) {
+        if (i < 0 || i >= softs.length) return;
         soft.setImageBitmap(softs[i]);
         heavy.setImageBitmap(heavies[i]);
     }
@@ -347,7 +357,10 @@ final class FeaturedCarousel {
                     if (baked != null) sharp.put(i, baked);
                     softs[i] = s;
                     heavies[i] = h;
-                    if (i == index && !sliding) paint(i);
+                    if (i == index) {
+                        paintBlurs(i);
+                        if (!sliding) art.setImageBitmap(sharp.get(i));
+                    }
                 });
             });
         });

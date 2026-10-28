@@ -69,6 +69,7 @@
     <string name="settings_system">Reset and system</string>
     <string name="np_previous">Previous</string>
     <string name="featured_state">Featured carousel</string>
+    <string name="close_apps_state">Close apps when I leave them</string>
     <string name="featured_hint">OK for details  \u00B7  \u2190 \u2192 to browse  \u00B7  \u2193 for your apps</string>
     <string name="title_watch_on">Watch on %1$s</string>
     <string name="title_watch_label">Streaming on your apps</string>

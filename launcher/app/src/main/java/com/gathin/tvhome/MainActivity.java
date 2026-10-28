@@ -170,6 +170,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The focus glow's colour while the cinematic shelf tints it, 0 for plain white glass. */
     private int glassAccent;
     private int ambientColor = -1;
+    /** The glow's full strength: 1, or less over the featured picture. */
+    private float ambientMax = 1f;
+    private boolean closeApps, peekListenerAdded, gridAnimating;
+    private long lastCloseScheduled;
+    private final Runnable closeAppsTask = () -> AppCloser.closeBackgroundApps(this);
     private ValueAnimator ambientAnimator;
     private boolean heroShown;
     private boolean animations;
@@ -471,7 +476,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The glow is one bitmap, so its alpha can be applied while drawing it. Otherwise every frame of
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
-        ambientGlow = cfg.ambientGlow && !cfg.featured;   // the featured picture is the backdrop; an app-coloured glow over it only tints it
+        ambientGlow = cfg.ambientGlow;
+        ambientMax = cfg.featured ? 0.40f : 1f;   // over the featured picture the glow is a quiet tint, not a wash
+        closeApps = cfg.closeApps;
         appGlow = cfg.appGlow;
         if (!ambientGlow) ambient.setVisibility(View.GONE);
         heroName = findViewById(R.id.heroName);
@@ -995,6 +1002,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refreshWeather();
         refreshRecs();
         refreshFeatured();
+        // Close what is no longer on screen. Two things hold an app above the tier an ordinary app may close: a running
+        // service (so the apps are denied RUN_IN_BACKGROUND over adb, scan/appops-restricted.txt) and being Android's
+        // "previous app" (so a window-less activity in another process, BumpActivity, takes that slot first). Returning
+        // from the bump resumes Home too, so schedule at most once per 20 s.
+        if (closeApps && System.currentTimeMillis() - lastCloseScheduled > 20000) {
+            lastCloseScheduled = System.currentTimeMillis();
+            root.postDelayed(() -> startActivity(new Intent(this, BumpActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION)), 1800);
+            for (long delay : new long[]{3600, 9000, 25000}) root.postDelayed(closeAppsTask, delay);
+        }
         if (featured != null) {
             featured.start();
             // Home opens on the featured screen, as Apple TV's does; the dock waits at the bottom edge.
@@ -1136,13 +1152,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         featured.setLevel(FeaturedCarousel.SHARP, animate);
         showPeekGlass(true, animate);
         featured.focus();
+        if (!peekListenerAdded) {
+            peekListenerAdded = true;
+            // The peek is measured from the dock's laid-out position: redo it whenever the grid is laid out again
+            // (a fresh start lays it out after the featured screen first comes up).
+            grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (featuredMode && !gridAnimating) {
+                    float want = peekTranslation();
+                    if (Math.abs(grid.getTranslationY() - want) > 1f) grid.setTranslationY(want);
+                }
+            });
+        }
         grid.post(() -> {
             if (!featuredMode) return;
             float to = peekTranslation();
             grid.animate().cancel();
             if (animate && animations && !reducedMotion) {
-                grid.animate().translationY(to).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                gridAnimating = true;
+                grid.animate().translationY(to).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator())
+                        .withEndAction(() -> gridAnimating = false).start();
             } else {
+                gridAnimating = false;
                 grid.setTranslationY(to);
             }
         });
@@ -1158,9 +1188,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final Runnable focus = () -> focusTile(dockColumnMemory);
         grid.animate().cancel();
         if (animate && animations && !reducedMotion) {
+            gridAnimating = true;
             grid.animate().translationY(0f).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator())
-                    .withEndAction(focus).start();
+                    .withEndAction(() -> {
+                        gridAnimating = false;
+                        focus.run();
+                    }).start();
         } else {
+            gridAnimating = false;
             grid.setTranslationY(0f);
             focus.run();
         }
@@ -2006,7 +2041,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             hero.setAlpha(1f);
             if (ambientGlow) {
                 setAmbient(color);
-                ambient.setAlpha(1f);
+                ambient.setAlpha(ambientMax);
             }
             heroShown = true;
             return;
@@ -2022,7 +2057,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             hero.animate().alpha(1f).setDuration(260).start();
             if (ambientGlow) {
                 setAmbient(color);
-                ambient.animate().alpha(1f).setDuration(600).start();
+                ambient.animate().alpha(ambientMax).setDuration(600).start();
             }
             heroShown = true;
         } else if (changed) {
@@ -2038,7 +2073,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             } else if (ambientGlow && color != ambientColor) {
                 ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
                     setAmbient(color);
-                    ambient.animate().alpha(1f).setDuration(500).start();
+                    ambient.animate().alpha(ambientMax).setDuration(500).start();
                 }).start();
             }
         } else {
@@ -2047,7 +2082,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // finish them, or the shelf and the glow stay dim until focus moves to another app.
             if (hero.getAlpha() < 1f) hero.animate().alpha(1f).setDuration(260).start();
             if (ambientGlow && color == ambientColor && ambient.getAlpha() < 1f) {
-                ambient.animate().alpha(1f).setDuration(600).start();
+                ambient.animate().alpha(ambientMax).setDuration(600).start();
             }
         }
     }
@@ -2243,10 +2278,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         stopAmbientAnimation();
         ambient.animate().cancel();
         if (color == ambientColor) {
-            ambient.animate().alpha(1f).setDuration(180).start();
+            ambient.animate().alpha(ambientMax).setDuration(180).start();
             return;
         }
-        ambient.animate().alpha(1f).setDuration(180).start();
+        ambient.animate().alpha(ambientMax).setDuration(180).start();
         ambientAnimator = ValueAnimator.ofObject(new ArgbEvaluator(), ambientColor, color);
         ambientAnimator.setDuration(360);
         ambientAnimator.addUpdateListener(animation -> setAmbient((int) animation.getAnimatedValue()));
@@ -2276,17 +2311,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!ambientGlow) return;
         if (!animations || reducedMotion) {
             setAmbient(color);
-            ambient.setAlpha(1f);
+            ambient.setAlpha(ambientMax);
             return;
         }
         if (color == ambientColor && ambient.getBackground() != null) {
-            ambient.animate().alpha(1f).setDuration(300).start();
+            ambient.animate().alpha(ambientMax).setDuration(300).start();
             return;
         }
         // The same dip-and-swap as the dock's top shelf.
         ambient.animate().alpha(0.35f).setDuration(ambient.getAlpha() > 0.35f ? 200 : 0).withEndAction(() -> {
             setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(500).start();
+            ambient.animate().alpha(ambientMax).setDuration(500).start();
         }).start();
     }
 

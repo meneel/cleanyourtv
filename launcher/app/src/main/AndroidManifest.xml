@@ -15,6 +15,8 @@
     <!-- Posters for the Continue-watching row, and nothing else: PosterCache is the only class that opens a
          connection (OnlyPosterCacheOpensConnectionsTest). https only; continue_posters false makes no request. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Close the apps that are no longer on screen (AppCloser); a normal permission, granted at install. -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Needed since Android 10 to read the Wi-Fi network name for the network pill. Never requested at
          runtime: build-and-install grants it with pm grant, so lint's Android 12 "ask for COARSE with
          FINE" rule does not apply here. -->
@@ -204,6 +206,16 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- No window, own process, finishes at once: see BumpActivity. -->
+        <activity
+            android:name=".BumpActivity"
+            android:process=":bump"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <activity
             android:name=".TitleActivity"
