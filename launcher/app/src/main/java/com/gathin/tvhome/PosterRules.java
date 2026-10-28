@@ -82,6 +82,16 @@ final class PosterRules {
         }
     }
 
+    /** Files not touched for {@code maxAgeMs} (reads touch a poster), and leftover ".tmp" downloads older than an hour. */
+    static List<String> stale(List<Cached> files, long now, long maxAgeMs) {
+        List<String> drop = new ArrayList<>();
+        for (Cached c : files) {
+            long age = now - c.modified;
+            if (age > maxAgeMs || (c.name.endsWith(".tmp") && age > 60 * 60 * 1000L)) drop.add(c.name);
+        }
+        return drop;
+    }
+
     /** The names to delete, oldest first, until at most {@code maxFiles} files and {@code maxBytes} bytes remain. */
     static List<String> evict(List<Cached> files, int maxFiles, long maxBytes) {
         List<Cached> sorted = new ArrayList<>(files);

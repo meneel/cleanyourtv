@@ -1018,6 +1018,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        CacheSweep.maybeRun(this);
         refreshWatch();
         refreshWeather();
         refreshRecs();

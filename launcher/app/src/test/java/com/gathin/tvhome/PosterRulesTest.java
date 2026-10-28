@@ -14,6 +14,17 @@ import static org.junit.Assert.assertTrue;
 /** Which poster addresses may be fetched, how they are cached and evicted. */
 public class PosterRulesTest {
     @Test
+    public void staleDropsOldFilesAndOldTempDownloadsOnly() {
+        long day = 24 * 60 * 60 * 1000L, now = 100 * day;
+        List<PosterRules.Cached> files = Arrays.asList(
+                new PosterRules.Cached("fresh", 10, now - day),
+                new PosterRules.Cached("old", 10, now - 8 * day),
+                new PosterRules.Cached("a.tmp", 10, now - 2 * 60 * 60 * 1000L),
+                new PosterRules.Cached("b.tmp", 10, now - 60 * 1000L));
+        assertEquals(Arrays.asList("old", "a.tmp"), PosterRules.stale(files, now, 7 * day));
+    }
+
+    @Test
     public void httpsWithAHostIsNetwork() {
         assertEquals(PosterRules.NETWORK, PosterRules.kind("https://img.example.com/p/1.jpg"));
         assertEquals(PosterRules.NETWORK, PosterRules.kind("HTTPS://Img.Example.com/p?x=1#y"));
