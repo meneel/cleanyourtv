@@ -68,6 +68,10 @@
     <string name="settings_motion">Motion and start</string>
     <string name="settings_system">Reset and system</string>
     <string name="np_previous">Previous</string>
+    <string name="featured_state">Featured carousel</string>
+    <string name="title_watch_on">Watch on %1$s</string>
+    <string name="title_watch_label">Streaming on your apps</string>
+    <string name="title_not_on_apps">Not on any of your apps right now</string>
     <string name="recommended_heading">Recommended for you</string>
     <string name="recommendations_state">Recommended for you row</string>
     <string name="np_play_pause">Play or pause</string>

@@ -410,6 +410,95 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Featured carousel (featured): one card above the dock that turns to the next film or show every 8 s; OK opens
+         its page. Positioned above the dock in code, like the top shelf. See FeaturedCarousel. -->
+    <FrameLayout
+        android:id="@+id/featuredCard"
+        android:layout_width="372dp"
+        android:layout_height="210dp"
+        android:layout_gravity="top|end"
+        android:layout_marginEnd="68dp"
+        android:background="#FF10141C"
+        android:foreground="@drawable/feat_focus"
+        android:focusable="true"
+        android:clickable="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/featArt"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/feat_scrim"
+            android:importantForAccessibility="no" />
+
+        <LinearLayout
+            android:id="@+id/featInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:id="@+id/featTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.16"
+                android:textColor="#FF7CD4FF"
+                android:textSize="11sp"
+                android:fontFamily="@string/font_medium" />
+
+            <TextView
+                android:id="@+id/featTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="#FFFFFFFF"
+                android:textSize="24sp"
+                android:fontFamily="@string/font_regular" />
+
+            <TextView
+                android:id="@+id/featMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:singleLine="true"
+                android:textColor="#CCFFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_regular" />
+
+            <TextView
+                android:id="@+id/featProviders"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_medium" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/featDots"
+            android:layout_width="wrap_content"
+            android:layout_height="6dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="18dp"
+            android:orientation="horizontal" />
+    </FrameLayout>
+
     <!-- Now Playing (now_playing): art, title, artist and transport buttons for the playing media session, in the
          header between the date and the top buttons; hidden when nothing plays. See NowPlayingCard. -->
     <LinearLayout

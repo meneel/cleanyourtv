@@ -76,6 +76,15 @@ final class WatchNextReader {
      * for recommendations and the list of what was already watched. Empty when access is missing.
      */
     static List<String> movieTitles(Context ctx, int limit) {
+        return titles(ctx, limit, false);
+    }
+
+    /** Like movieTitles, for the rows that have a season or an episode: the shows. */
+    static List<String> seriesTitles(Context ctx, int limit) {
+        return titles(ctx, limit, true);
+    }
+
+    private static List<String> titles(Context ctx, int limit, boolean series) {
         List<String> out = new ArrayList<>();
         try (Cursor c = open(ctx)) {
             if (c == null) return out;
@@ -85,7 +94,8 @@ final class WatchNextReader {
             int seen = 0;
             while (c.moveToNext() && seen++ < ROW_LIMIT && out.size() < limit) {
                 String t = text(c, title);
-                if (t == null || t.trim().isEmpty() || number(c, season) != 0 || number(c, episode) != 0) continue;
+                boolean isSeries = number(c, season) != 0 || number(c, episode) != 0;
+                if (t == null || t.trim().isEmpty() || isSeries != series) continue;
                 if (!out.contains(t.trim())) out.add(t.trim());
             }
         } catch (RuntimeException e) {

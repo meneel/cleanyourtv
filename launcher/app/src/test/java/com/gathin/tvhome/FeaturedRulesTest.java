@@ -1,0 +1,84 @@
+package com.gathin.tvhome;
+
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public class FeaturedRulesTest {
+    private static final String TV_JSON = "{\"results\":["
+            + "{\"adult\":false,\"backdrop_path\":\"/s.jpg\",\"id\":1399,\"name\":\"Game of Thrones\",\"first_air_date\":\"2011-04-17\",\"vote_average\":8.4,\"vote_count\":25000,\"overview\":\"Seven noble families\\nfight.\"},"
+            + "{\"adult\":false,\"backdrop_path\":null,\"id\":2,\"name\":\"No Picture\",\"first_air_date\":\"2020-01-01\",\"vote_average\":8.0,\"vote_count\":900},"
+            + "{\"adult\":false,\"backdrop_path\":\"/t.jpg\",\"id\":3,\"name\":\"Thin\",\"first_air_date\":\"2020-01-01\",\"vote_average\":9.0,\"vote_count\":3}]}";
+
+    private static FeaturedRules.Title t(String type, long id, String name, String tag) {
+        return new FeaturedRules.Title(type, id, name, "2024", 7.5, tag, "o", "https://image.tmdb.org/t/p/w780/" + id + ".jpg", new ArrayList<String>());
+    }
+
+    @Test
+    public void showsUseNameAndFirstAirDateAndThinOnesAreDropped() {
+        List<FeaturedRules.Title> l = FeaturedRules.titles(TV_JSON, FeaturedRules.TV, "New", 100);
+        assertEquals(1, l.size());
+        assertEquals("Game of Thrones", l.get(0).title);
+        assertEquals("2011", l.get(0).year);
+        assertEquals("Seven noble families fight.", l.get(0).overview);        // newline flattened
+        assertEquals("https://image.tmdb.org/t/p/w780/s.jpg", l.get(0).backdrop);
+        assertEquals("★ 8.4 · Series · 2011", FeaturedRules.meta(l.get(0)));
+    }
+
+    @Test
+    public void aDetailsObjectParsesLikeAOneItemList() {
+        String one = "{\"id\":603,\"title\":\"The Matrix\",\"release_date\":\"1999-03-30\",\"backdrop_path\":\"/m.jpg\",\"vote_average\":8.2,\"vote_count\":25000,\"overview\":\"A hacker.\"}";
+        List<FeaturedRules.Title> l = FeaturedRules.titles(one, FeaturedRules.MOVIE, "Recommended", 0);
+        assertEquals(1, l.size());
+        assertEquals(603, l.get(0).id);
+    }
+
+    @Test
+    public void mixInterleavesKindsAndDropsRepeatsAndSecondFilms() {
+        List<FeaturedRules.Title> rec = Arrays.asList(t("movie", 1, "Alpha Saga", "Recommended"), t("movie", 2, "Alpha Saga 2", "Recommended"));
+        List<FeaturedRules.Title> fresh = Arrays.asList(t("tv", 10, "Brand New Show", "New"), t("movie", 1, "Alpha Saga", "New"));
+        List<FeaturedRules.Title> top = Arrays.asList(t("tv", 20, "Classic Series", "Top rated"));
+        List<FeaturedRules.Title> out = FeaturedRules.mix(rec, fresh, top, 10);
+        List<String> names = new ArrayList<>();
+        for (FeaturedRules.Title x : out) names.add(x.title);
+        assertEquals(Arrays.asList("Alpha Saga", "Brand New Show", "Classic Series"), names);   // Alpha Two shares a franchise; the repeat is dropped
+        assertEquals(2, FeaturedRules.mix(rec, fresh, top, 2).size());
+    }
+
+    @Test
+    public void providersLineNamesOnlyKnownApps() {
+        assertEquals("On Netflix · JioHotstar", FeaturedRules.providersLine(Arrays.asList("com.netflix.ninja", "unknown.app", "in.startv.hotstar")));
+        assertEquals("", FeaturedRules.providersLine(new ArrayList<String>()));
+    }
+
+    @Test
+    public void cacheRoundTripsAndRefusesBadLines() {
+        FeaturedRules.Title a = new FeaturedRules.Title("tv", 5, "A\tTitle", "2024", 8.25, "New", "line1\nline2", "https://image.tmdb.org/t/p/w780/x.jpg", Arrays.asList("com.netflix.ninja", "in.startv.hotstar"));
+        List<FeaturedRules.Title> back = FeaturedRules.fromTsv(FeaturedRules.toTsv(Arrays.asList(a)));
+        assertEquals(1, back.size());
+        assertEquals("A Title", back.get(0).title);
+        assertEquals("line1 line2", back.get(0).overview);
+        assertEquals(Arrays.asList("com.netflix.ninja", "in.startv.hotstar"), back.get(0).pkgs);
+        assertEquals(8.25, back.get(0).rating, 0);
+        assertTrue(FeaturedRules.fromTsv("tv\t1\tT\t2020\t7\tNew\to\thttp://insecure/x.jpg\t\n").isEmpty());
+        assertTrue(FeaturedRules.fromTsv("tv\tNaN\tT\n\nbad\n").isEmpty());
+        assertFalse(FeaturedRules.toTsv(Arrays.asList(a)).contains("line1\nline2"));
+    }
+
+    @Test
+    public void discoverUrlsAreOnTheApiHostWithPipeEncoded() {
+        String url = FeaturedRules.discoverUrl("movie", Arrays.asList(8, 119), "popularity.desc", "2025-01-01", 150, 6.5);
+        assertTrue(url, url.contains("with_watch_providers=8%7C119"));
+        assertTrue(url.contains("primary_release_date.gte=2025-01-01"));
+        assertTrue(Net.allowed(url));
+        assertTrue(FeaturedRules.discoverUrl("tv", Arrays.asList(8), "vote_average.desc", null, 1500, 7.0).contains("/discover/tv"));
+        assertTrue(Net.allowed(FeaturedRules.providersUrl("tv", 1399)));
+        assertTrue(Net.allowed(FeaturedRules.tvSearchUrl("How I Met Your Mother")));
+    }
+}

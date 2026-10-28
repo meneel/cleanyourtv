@@ -240,6 +240,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** config.xml dock_row: the first row is a separate dock (band, parked low, top shelf) rather than plain grid. */
     private boolean dockRow;
     private boolean continueWatching, recommendations;
+    private FeaturedCarousel featured;
+    private int featuredGeneration;
+    private List<FeaturedRules.Title> shownFeatured = java.util.Collections.emptyList();
     private int recsGeneration;
     private int continueMax, continueMaxAgeDays, continueHidePercent;
     /** The Continue-watching cards Home shows now; the row is rebuilt only when a read gives different ones. */
@@ -423,6 +426,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dockRow = cfg.dockRow;
         continueWatching = cfg.continueWatching;
         recommendations = cfg.recommendations;
+        if (cfg.featured) featured = new FeaturedCarousel(this, findViewById(R.id.featuredCard), t -> startActivity(TitleActivity.intent(this, t)));
         continueMax = cfg.continueMax;
         continueMaxAgeDays = cfg.continueMaxAgeDays;
         continueHidePercent = cfg.continueHidePercent;
@@ -984,6 +988,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refreshWatch();
         refreshWeather();
         refreshRecs();
+        refreshFeatured();
+        if (featured != null) featured.start();
         if (nowPlaying != null) nowPlaying.start();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -1103,6 +1109,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (fresh != null) applyRecs(fresh, generation);
             }
         }, "recs").start();
+    }
+
+    /** The carousel's titles: the cached ones at once, then a fresh set from TMDB when the cache is old. Worker thread. */
+    private void refreshFeatured() {
+        if (featured == null) return;
+        final int generation = ++featuredGeneration;
+        new Thread(() -> {
+            applyFeatured(Featured.cached(this), generation);
+            if (Featured.stale(this)) {
+                List<FeaturedRules.Title> fresh = Featured.refresh(this);
+                if (fresh != null) applyFeatured(fresh, generation);
+            }
+        }, "featured").start();
+    }
+
+    private void applyFeatured(List<FeaturedRules.Title> titles, int generation) {
+        runOnUiThread(() -> {
+            if (isDestroyed() || generation != featuredGeneration || featured == null || sameTitles(titles, shownFeatured)) return;
+            shownFeatured = titles;
+            featured.setTitles(titles);
+        });
+    }
+
+    private static boolean sameTitles(List<FeaturedRules.Title> a, List<FeaturedRules.Title> b) {
+        return FeaturedRules.toTsv(a).equals(FeaturedRules.toTsv(b));
     }
 
     private void applyRecs(List<ContinueRules.Card> cards, int generation) {
@@ -1258,6 +1289,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onPause();
         root.removeCallbacks(showIdleClock);
         if (nowPlaying != null) nowPlaying.stop();
+        if (featured != null) featured.stop();
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
         stopAmbientAnimation();
@@ -1365,6 +1397,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Vendor keys (TCL Netflix button, 4062) never reach the key services, only the focused window.
         if (event.getKeyCode() >= 1000 && RemoteKeys.handle(this, event, homeAppKeys.get(event.getKeyCode()), null)) return true;
         if (handleSettingsKey(event)) return true;
+        if (featured != null && featured.handleKey(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
             int position = focusedTilePosition();
@@ -1835,6 +1868,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
+        if (featured != null) featured.show(dockTopInRoot - 24 * density - 210 * density);
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
 
@@ -2134,6 +2168,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void hideHero() {
+        if (featured != null) featured.hide();
         if (!heroShown) return;
         stopAmbientAnimation();
         hero.animate().cancel();

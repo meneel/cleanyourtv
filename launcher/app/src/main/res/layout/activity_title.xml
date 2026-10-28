@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A featured title's page (TitleActivity): backdrop, summary, rating and a button for each of this TV's apps that
+     streams it. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF05070C">
+
+    <ImageView
+        android:id="@+id/titleBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.7"
+        android:importantForAccessibility="no" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/title_scrim"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="560dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="88dp"
+        android:gravity="bottom"
+        android:orientation="vertical"
+        android:paddingBottom="72dp">
+
+        <TextView
+            android:id="@+id/titleTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.18"
+            android:textColor="#FF7CD4FF"
+            android:textSize="14sp"
+            android:fontFamily="@string/font_medium" />
+
+        <TextView
+            android:id="@+id/titleName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textColor="#FFFFFFFF"
+            android:textSize="46sp"
+            android:fontFamily="@string/font_light" />
+
+        <TextView
+            android:id="@+id/titleMeta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="#D9FFFFFF"
+            android:textSize="17sp"
+            android:fontFamily="@string/font_regular" />
+
+        <TextView
+            android:id="@+id/titleOverview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:maxLines="6"
+            android:ellipsize="end"
+            android:lineSpacingExtra="4dp"
+            android:textColor="#CCFFFFFF"
+            android:textSize="17sp"
+            android:fontFamily="@string/font_regular" />
+
+        <TextView
+            android:id="@+id/titleWatchLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:letterSpacing="0.14"
+            android:textAllCaps="true"
+            android:textColor="#99FFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="@string/font_medium" />
+
+        <LinearLayout
+            android:id="@+id/titleButtons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal" />
+    </LinearLayout>
+</FrameLayout>

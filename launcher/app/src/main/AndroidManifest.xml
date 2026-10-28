@@ -205,6 +205,12 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <activity
+            android:name=".TitleActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape" />
+
         <!-- Aurora screensaver: drifting colour fields, a large clock, the date and the weather. Select it with
              `settings put secure screensaver_components com.gathin.tvhome/.AuroraDream` over adb. -->
         <service

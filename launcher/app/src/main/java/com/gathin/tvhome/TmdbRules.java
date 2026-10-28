@@ -84,7 +84,7 @@ final class TmdbRules {
                 + "&with_watch_monetization_types=flatrate&watch_region=" + REGION + "&with_watch_providers=" + providerId;
     }
 
-    private static String enc(String s) {
+    static String enc(String s) {
         try {
             return URLEncoder.encode(s, "UTF-8");
         } catch (java.io.UnsupportedEncodingException e) {

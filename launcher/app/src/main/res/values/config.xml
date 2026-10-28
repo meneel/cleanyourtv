@@ -304,6 +304,10 @@
          streaming apps this TV has, from TMDB (api.themoviedb.org; titles from Watch Next are sent to it). Needs a
          TMDB read token in files/tmdb_token on the TV. Off by default; "recommendations": true in a theme. -->
     <bool name="recommendations">false</bool>
+    <!-- A Featured carousel card above the dock: new, top-rated and recommended films and shows streaming on this
+         TV's apps (TMDB), turning every 8 s; OK opens the title's page with a button for each app that has it. Needs
+         the same TMDB token as recommendations. Off by default; "featured": true in a theme. -->
+    <bool name="featured">false</bool>
     <!-- Show °F instead of °C. -->
     <bool name="weather_fahrenheit">false</bool>
     <string name="weather_city"></string>

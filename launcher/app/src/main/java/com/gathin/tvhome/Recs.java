@@ -44,7 +44,7 @@ final class Recs {
     }
 
     /** The token from files/tmdb_token, or null when there is none or it does not look like one. */
-    private static String token(Context ctx) {
+    static String token(Context ctx) {
         try {
             File dir = Config.dir(ctx);
             File f = dir == null ? null : new File(dir, "tmdb_token");
@@ -56,7 +56,7 @@ final class Recs {
         }
     }
 
-    private static boolean installed(PackageManager pm, String pkg) {
+    static boolean installed(PackageManager pm, String pkg) {
         return pm.getLeanbackLaunchIntentForPackage(pkg) != null || pm.getLaunchIntentForPackage(pkg) != null;
     }
 
