@@ -40,6 +40,12 @@ final class Config {
     static final String FILE_NAME = "config.json";
     static final String WALLPAPER_NAME = "wallpaper.jpg";
     static final String SETTINGS_NAME = "launcher_settings";
+    /** Home-screen switches the Launcher settings screen can flip; they overlay the theme like the other on-TV choices. */
+    static final String[] HOME_KEYS = {"continue_watching", "weather", "weather_fahrenheit", "dock_band", "cinematic_home", "now_playing"};
+
+    static void clearHomeChoices(SharedPreferences.Editor editor) {
+        for (String key : HOME_KEYS) editor.remove(key);
+    }
     static final String ROWS_BELOW_DOCK_KEY = "rows_below_dock";
     static final String WALLPAPER_CHOICE_KEY = "wallpaper_choice";
     static final String DOCK_OPACITY_KEY = "dock_opacity";
@@ -216,7 +222,9 @@ final class Config {
     final int continueMax, continueMaxAgeDays, continueHidePercent;
     final boolean continuePosters;
     /** A temperature line under the date (config.xml weather_*, or a theme): on, the place from the IP when weatherIp, else/fallback the coordinates. */
-    final boolean weather, weatherIp;
+    final boolean weather, weatherIp, weatherFahrenheit;
+    /** The Now Playing card in the header (config.xml now_playing). */
+    final boolean nowPlaying;
     final String weatherCity;
     final double weatherLat, weatherLon;
     /** The dock band's padding equals the gap between its tiles (config.xml, dock_even_padding); false keeps the fixed padding. */
@@ -282,7 +290,7 @@ final class Config {
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly,
                    boolean continueWatching, int continueMax, int continueMaxAgeDays, int continueHidePercent,
-                   boolean continuePosters, boolean weather, boolean weatherIp, String weatherCity, double weatherLat, double weatherLon) {
+                   boolean continuePosters, boolean weather, boolean weatherIp, boolean weatherFahrenheit, String weatherCity, double weatherLat, double weatherLon, boolean nowPlaying) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -385,6 +393,8 @@ final class Config {
         this.continuePosters = continuePosters;
         this.weather = weather;
         this.weatherIp = weatherIp;
+        this.weatherFahrenheit = weatherFahrenheit;
+        this.nowPlaying = nowPlaying;
         this.weatherCity = weatherCity;
         this.weatherLat = weatherLat;
         this.weatherLon = weatherLon;
@@ -504,6 +514,8 @@ final class Config {
         boolean continuePosters = res.getBoolean(R.bool.continue_posters);
         boolean weather = res.getBoolean(R.bool.weather);
         boolean weatherIp = res.getBoolean(R.bool.weather_ip);
+        boolean weatherFahrenheit = res.getBoolean(R.bool.weather_fahrenheit);
+        boolean nowPlaying = res.getBoolean(R.bool.now_playing);
         String weatherCity = res.getString(R.string.weather_city).trim();
         double weatherLat = Double.parseDouble(res.getString(R.string.weather_lat));
         double weatherLon = Double.parseDouble(res.getString(R.string.weather_lon));
@@ -621,6 +633,8 @@ final class Config {
             continuePosters = bool(json, "continue_posters", continuePosters);
             weather = bool(json, "weather", weather);
             weatherIp = bool(json, "weather_ip", weatherIp);
+            weatherFahrenheit = bool(json, "weather_fahrenheit", weatherFahrenheit);
+            nowPlaying = bool(json, "now_playing", nowPlaying);
             weatherCity = string(json, "weather_city", weatherCity);
             weatherLat = json.optDouble("weather_lat", weatherLat);
             weatherLon = json.optDouble("weather_lon", weatherLon);
@@ -661,6 +675,12 @@ final class Config {
         if (chosenRows >= 0 && chosenRows <= 3) rowsBelow = chosenRows;
         animations = choices.getBoolean("animations", animations);
         advancedEffects = choices.getBoolean("advanced_effects", advancedEffects);
+        continueWatching = choices.getBoolean("continue_watching", continueWatching);
+        weather = choices.getBoolean("weather", weather);
+        weatherFahrenheit = choices.getBoolean("weather_fahrenheit", weatherFahrenheit);
+        nowPlaying = choices.getBoolean("now_playing", nowPlaying);
+        dockBand = choices.getBoolean("dock_band", dockBand);
+        cinematic = choices.getBoolean("cinematic_home", cinematic);
         File wallpaper = dir != null ? new File(dir, WALLPAPER_NAME) : null;
         if (wallpaper != null && !(wallpaper.isFile() && wallpaper.length() > 0)) wallpaper = null;
         // A theme can also switch the wallpaper off while the file is still there.
@@ -711,7 +731,7 @@ final class Config {
                 continueWatching, ContinueRules.clamp(continueMax, ContinueRules.MIN_MAX, ContinueRules.MAX_MAX),
                 ContinueRules.clamp(continueMaxAgeDays, ContinueRules.MIN_AGE_DAYS, ContinueRules.MAX_AGE_DAYS),
                 ContinueRules.clamp(continueHidePercent, ContinueRules.MIN_HIDE_PERCENT, ContinueRules.MAX_HIDE_PERCENT),
-                continuePosters, weather, weatherIp, weatherCity, weatherLat, weatherLon);
+                continuePosters, weather, weatherIp, weatherFahrenheit, weatherCity, weatherLat, weatherLon, nowPlaying);
     }
 
     /**
@@ -756,11 +776,13 @@ final class Config {
             if (!"absent".equals(token)) editor.remove("columns").remove("animations")
                     .remove("advanced_effects").remove(ROWS_BELOW_DOCK_KEY).remove(WALLPAPER_CHOICE_KEY)
                     .remove(DOCK_OPACITY_KEY);
+            if (!"absent".equals(token)) clearHomeChoices(editor);
             editor.putString(THEME_SIGNATURE_KEY, signature).commit();
         } else if (!seen.equals(signature)) {
-            choices.edit().remove("columns").remove("animations").remove("advanced_effects")
-                    .remove(ROWS_BELOW_DOCK_KEY).remove(WALLPAPER_CHOICE_KEY).remove(DOCK_OPACITY_KEY)
-                    .putString(THEME_SIGNATURE_KEY, signature).commit();
+            SharedPreferences.Editor editor = choices.edit().remove("columns").remove("animations").remove("advanced_effects")
+                    .remove(ROWS_BELOW_DOCK_KEY).remove(WALLPAPER_CHOICE_KEY).remove(DOCK_OPACITY_KEY);
+            clearHomeChoices(editor);
+            editor.putString(THEME_SIGNATURE_KEY, signature).commit();
         }
     }
 

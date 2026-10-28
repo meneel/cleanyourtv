@@ -13,6 +13,7 @@ final class WeatherRules {
     private static final Pattern SUCCESS = Pattern.compile("\"success\"\\s*:\\s*true");
     private static final Pattern TEMP = Pattern.compile("\"temperature_2m\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
     private static final Pattern CODE = Pattern.compile("\"weather_code\"\\s*:\\s*(\\d+)");
+    private static final Pattern DAY = Pattern.compile("\"is_day\"\\s*:\\s*([01])");
     private static final Pattern LAT = Pattern.compile("\"latitude\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
     private static final Pattern LON = Pattern.compile("\"longitude\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
     private static final Pattern CITY = Pattern.compile("\"city\"\\s*:\\s*\"([^\"]{1,40})\"");
@@ -22,10 +23,12 @@ final class WeatherRules {
 
     static final class Reading {
         final int tempC, code;
+        final boolean day;
 
-        Reading(int tempC, int code) {
+        Reading(int tempC, int code, boolean day) {
             this.tempC = tempC;
             this.code = code;
+            this.day = day;
         }
     }
 
@@ -46,7 +49,7 @@ final class WeatherRules {
 
     static String url(double lat, double lon) {
         return String.format(Locale.ROOT,
-                "https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f&current=temperature_2m,weather_code&timezone=auto",
+                "https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f&current=temperature_2m,weather_code,is_day&timezone=auto",
                 lat, lon);
     }
 
@@ -63,7 +66,9 @@ final class WeatherRules {
         if (!t.find() || !c.find()) return null;
         double temp = Double.parseDouble(t.group(1));
         if (temp < -90 || temp > 70) return null;
-        return new Reading((int) Math.round(temp), Integer.parseInt(c.group(1)));
+        Matcher d = DAY.matcher(block);
+        boolean day = !d.find() || "1".equals(d.group(1));   // no is_day: assume day
+        return new Reading((int) Math.round(temp), Integer.parseInt(c.group(1)), day);
     }
 
     /** The IP lookup's reply, or null when it did not succeed or the point is not a real place. */
@@ -89,13 +94,29 @@ final class WeatherRules {
         return "";
     }
 
-    /** "Kolkata 31° · Partly cloudy" (the view upper-cases it). */
-    static String line(String city, Reading r) {
+    /** One emoji for the code, a moon or a bare cloud at night; "" for a code it does not know. */
+    static String emoji(int code, boolean day) {
+        if (code == 0) return day ? "\u2600\uFE0F" : "\uD83C\uDF19";
+        if (code == 1) return day ? "\uD83C\uDF24\uFE0F" : "\uD83C\uDF19";
+        if (code == 2) return day ? "\u26C5" : "\u2601\uFE0F";
+        if (code == 3) return "\u2601\uFE0F";
+        if (code == 45 || code == 48) return "\uD83C\uDF2B\uFE0F";
+        if (code >= 51 && code <= 57) return "\uD83C\uDF26\uFE0F";
+        if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "\uD83C\uDF27\uFE0F";
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "\u2744\uFE0F";
+        if (code >= 95 && code <= 99) return "\u26C8\uFE0F";
+        return "";
+    }
+
+    /** "Kolkata  \u26C5 31\u00B0 \u00B7 Partly cloudy" (the view upper-cases the words). */
+    static String line(String city, Reading r, boolean fahrenheit) {
         StringBuilder sb = new StringBuilder();
         if (city != null && !city.isEmpty()) sb.append(city).append("  ");
-        sb.append(r.tempC).append('°');
+        String emoji = emoji(r.code, r.day);
+        if (!emoji.isEmpty()) sb.append(emoji).append(' ');
+        sb.append(fahrenheit ? (int) Math.round(r.tempC * 9.0 / 5.0 + 32.0) : r.tempC).append('\u00B0');
         String label = label(r.code);
-        if (!label.isEmpty()) sb.append(" · ").append(label);
+        if (!label.isEmpty()) sb.append(" \u00B7 ").append(label);
         return sb.toString();
     }
 

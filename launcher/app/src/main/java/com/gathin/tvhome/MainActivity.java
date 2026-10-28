@@ -188,7 +188,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** lunar_date: the lunisolar date under the date line, and the time zone it is computed for. */
     private TextView lunarDate;
     private TextView weatherLine;
-    private boolean weatherOn, weatherIp, weatherBusy;
+    private NowPlayingCard nowPlaying;
+    private boolean weatherOn, weatherIp, weatherFahrenheit, weatherBusy;
     private String weatherCity;
     private double weatherLat, weatherLon;
     // Process-lifetime cache: Home is re-created often, the network should not be.
@@ -522,8 +523,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
         weatherLine = findViewById(R.id.weatherLine);
+        if (cfg.nowPlaying) nowPlaying = new NowPlayingCard(this, findViewById(R.id.nowPlaying));
         weatherOn = cfg.weather;
         weatherIp = cfg.weatherIp;
+        weatherFahrenheit = cfg.weatherFahrenheit;
         weatherCity = cfg.weatherCity;
         weatherLat = cfg.weatherLat;
         weatherLon = cfg.weatherLon;
@@ -973,6 +976,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onResume();
         refreshWatch();
         refreshWeather();
+        if (nowPlaying != null) nowPlaying.start();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -1099,7 +1103,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showWeather() {
         if (weatherReading == null) return;
         String city = weatherPlace != null && !weatherPlace.city.isEmpty() ? weatherPlace.city : weatherCity;
-        weatherLine.setText(WeatherRules.line(city, weatherReading));
+        weatherLine.setText(WeatherRules.line(city, weatherReading, weatherFahrenheit));
         weatherLine.setVisibility(View.VISIBLE);
     }
 
@@ -1245,6 +1249,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         root.removeCallbacks(showIdleClock);
+        if (nowPlaying != null) nowPlaying.stop();
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
         stopAmbientAnimation();

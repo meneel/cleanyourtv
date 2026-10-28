@@ -410,6 +410,89 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Now Playing (now_playing): art, title, artist and transport buttons for the playing media session, in the
+         header between the date and the top buttons; hidden when nothing plays. See NowPlayingCard. -->
+    <LinearLayout
+        android:id="@+id/nowPlaying"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="172dp"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="@drawable/np_card_bg"
+        android:clipChildren="false"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/npArt"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no" />
+
+        <LinearLayout
+            android:layout_width="130dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/npTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="@string/font_regular" />
+
+            <TextView
+                android:id="@+id/npArtist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="#B3FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_regular" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/npPrev"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:padding="8dp"
+            android:background="@drawable/np_btn_bg"
+            android:src="@drawable/ic_np_prev"
+            android:contentDescription="@string/np_previous"
+            android:focusable="true" />
+
+        <ImageButton
+            android:id="@+id/npPlay"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            android:background="@drawable/np_btn_bg"
+            android:src="@drawable/ic_np_pause"
+            android:contentDescription="@string/np_play_pause"
+            android:focusable="true" />
+
+        <ImageButton
+            android:id="@+id/npNext"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            android:background="@drawable/np_btn_bg"
+            android:src="@drawable/ic_np_next"
+            android:contentDescription="@string/np_next"
+            android:focusable="true" />
+    </LinearLayout>
+
     <!-- The single floating glass highlight that springs between tiles. -->
     <com.gathin.tvhome.GlassView
         android:id="@+id/glass"

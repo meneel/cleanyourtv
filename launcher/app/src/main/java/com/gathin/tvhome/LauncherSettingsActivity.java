@@ -37,6 +37,8 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView advancedChoice;
     private TextView followThemeChoice;
     private TextView openOnStartChoice;
+    private TextView nowPlayingChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
+    private boolean nowPlayingOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
     private int columns;
     private int rowsBelowDock;
     private int dockOpacity;
@@ -60,6 +62,18 @@ public final class LauncherSettingsActivity extends Activity {
         dockOpacity = config.dockOpacity;
         animations = config.animations;
         advancedEffects = config.animations && config.advancedEffects;
+        continueOn = config.continueWatching;
+        nowPlayingOn = config.nowPlaying;
+        nowPlayingChoice = homeToggle(R.id.nowPlayingChoice, "now_playing", () -> nowPlayingOn = !nowPlayingOn, () -> nowPlayingOn);
+        weatherOn = config.weather;
+        fahrenheit = config.weatherFahrenheit;
+        dockBandOn = config.dockBand;
+        topShelfOn = config.cinematicHome;
+        continueChoice = homeToggle(R.id.continueChoice, "continue_watching", () -> continueOn = !continueOn, () -> continueOn);
+        weatherChoice = homeToggle(R.id.weatherChoice, "weather", () -> weatherOn = !weatherOn, () -> weatherOn);
+        weatherUnitChoice = homeToggle(R.id.weatherUnitChoice, "weather_fahrenheit", () -> fahrenheit = !fahrenheit, () -> fahrenheit);
+        dockBandChoice = homeToggle(R.id.dockBandChoice, "dock_band", () -> dockBandOn = !dockBandOn, () -> dockBandOn);
+        topShelfChoice = homeToggle(R.id.topShelfChoice, "cinematic_home", () -> topShelfOn = !topShelfOn, () -> topShelfOn);
 
         int[] ids = {R.id.columns4, R.id.columns5, R.id.columns6, R.id.columns7};
         for (int i = 0; i < ids.length; i++) {
@@ -141,12 +155,21 @@ public final class LauncherSettingsActivity extends Activity {
             choices.edit().remove("columns").remove(Config.ROWS_BELOW_DOCK_KEY).remove("animations")
                     .remove("advanced_effects").remove(Config.WALLPAPER_CHOICE_KEY)
                     .remove(Config.DOCK_OPACITY_KEY).remove(OpenOnStart.KEY).commit();
+            SharedPreferences.Editor homeChoices = choices.edit();
+            Config.clearHomeChoices(homeChoices);
+            homeChoices.commit();
             Config current = Config.load(this);
             columns = current.columns;
             rowsBelowDock = current.rowsBelowDock;
             dockOpacity = current.dockOpacity;
             animations = current.animations;
             advancedEffects = current.animations && current.advancedEffects;
+            continueOn = current.continueWatching;
+            nowPlayingOn = current.nowPlaying;
+            weatherOn = current.weather;
+            fahrenheit = current.weatherFahrenheit;
+            dockBandOn = current.dockBand;
+            topShelfOn = current.cinematicHome;
             changed();
             refresh();
         });
@@ -159,6 +182,18 @@ public final class LauncherSettingsActivity extends Activity {
         refresh();
         if (config.launcherSettingsButton) reorderChoice.requestFocus();
         else columnChoices[Math.max(0, Math.min(columns - 4, 3))].requestFocus();
+    }
+
+    /** A Home-screen switch: flips the value, saves it as an on-TV choice over the theme, and tells Home to rebuild. */
+    private TextView homeToggle(int id, String key, Runnable flip, java.util.function.BooleanSupplier value) {
+        TextView row = findViewById(id);
+        row.setOnClickListener(v -> {
+            flip.run();
+            choices.edit().putBoolean(key, value.getAsBoolean()).apply();
+            changed();
+            refresh();
+        });
+        return row;
     }
 
     private void reverseRow(TextView[] views) {
@@ -286,22 +321,50 @@ public final class LauncherSettingsActivity extends Activity {
         for (int i = 0; i < dockChoices.length; i++) {
             dockChoices[i].setSelected(dockOpacity == DOCK_OPACITIES[i]);
         }
-        animationsChoice.setText(getString(R.string.animations_state,
-                getString(animations ? R.string.on : R.string.off)));
-        advancedChoice.setText(getString(R.string.advanced_effects_state,
-                getString(advancedEffects ? R.string.on : R.string.off)));
+        toggle(animationsChoice, labelOf(getString(R.string.animations_state, "")), animations);
+        toggle(advancedChoice, labelOf(getString(R.string.advanced_effects_state, "")), advancedEffects);
         advancedChoice.setEnabled(animations);
         advancedChoice.setAlpha(animations ? 1f : 0.5f);
         String wallpaperCurrent = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
-        wallpaperChoice.setText(getString(R.string.wallpaper_state,
+        wallpaperChoice.setText(accentValue(getString(R.string.wallpaper_state,
                 "none".equals(wallpaperCurrent) ? getString(R.string.wallpaper_none)
                         : wallpaperCurrent != null ? wallpaperCurrent
-                        : getString(R.string.wallpaper_theme_default)));
-        openOnStartChoice.setText(getString(R.string.open_on_start_state, openOnStartLabel()));
+                        : getString(R.string.wallpaper_theme_default))));
+        openOnStartChoice.setText(accentValue(getString(R.string.open_on_start_state, openOnStartLabel())));
+        toggle(nowPlayingChoice, getString(R.string.now_playing_state), nowPlayingOn);
+        toggle(continueChoice, getString(R.string.continue_state), continueOn);
+        toggle(weatherChoice, getString(R.string.weather_state), weatherOn);
+        weatherUnitChoice.setText(accentValue(getString(R.string.weather_unit_state, fahrenheit ? "\u00B0F" : "\u00B0C")));
+        weatherUnitChoice.setEnabled(weatherOn);
+        weatherUnitChoice.setAlpha(weatherOn ? 1f : 0.5f);
+        toggle(dockBandChoice, getString(R.string.dock_band_state), dockBandOn);
+        toggle(topShelfChoice, getString(R.string.top_shelf_state), topShelfOn);
         followThemeChoice.setSelected(!hasOnTvChoices());
     }
 
+    /** A switch row: the label, and the switch at its end drawn from the view's activated state. */
+    private static void toggle(TextView row, String label, boolean on) {
+        row.setText(label);
+        row.setActivated(on);
+    }
+
+    /** "Animations: %1$s" with the value cut off: the translated label alone. */
+    private static String labelOf(String s) {
+        int i = s.indexOf(':');
+        return i > 0 ? s.substring(0, i).trim() : s.trim();
+    }
+
+    /** The text after the first ": " in the accent colour, so a value reads apart from its label. */
+    private static CharSequence accentValue(String s) {
+        int i = s.indexOf(": ");
+        if (i < 0) return s;
+        android.text.SpannableString spanned = new android.text.SpannableString(s);
+        spanned.setSpan(new android.text.style.ForegroundColorSpan(0xFF7CD4FF), i + 2, s.length(), 0);
+        return spanned;
+    }
+
     private boolean hasOnTvChoices() {
+        for (String key : Config.HOME_KEYS) if (choices.contains(key)) return true;
         return choices.contains("columns") || choices.contains(Config.ROWS_BELOW_DOCK_KEY)
                 || choices.contains("animations") || choices.contains("advanced_effects")
                 || choices.contains(Config.WALLPAPER_CHOICE_KEY) || choices.contains(Config.DOCK_OPACITY_KEY)

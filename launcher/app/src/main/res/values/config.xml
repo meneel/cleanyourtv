@@ -295,6 +295,13 @@
          IP address. Off by default. Also settable as "weather": true in a theme's config.json. -->
     <bool name="weather">false</bool>
     <bool name="weather_ip">true</bool>
+    <!-- A Now Playing card in the header (art, title, artist, previous / play-pause / next) while a media session
+         plays. Needs `adb shell cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.NowPlayingListener`
+         (Android lists other apps' sessions only for a notification-listener component; this one reads no
+         notifications). Off by default; "now_playing": true in a theme. -->
+    <bool name="now_playing">false</bool>
+    <!-- Show °F instead of °C. -->
+    <bool name="weather_fahrenheit">false</bool>
     <string name="weather_city"></string>
     <string name="weather_lat">0</string>
     <string name="weather_lon">0</string>

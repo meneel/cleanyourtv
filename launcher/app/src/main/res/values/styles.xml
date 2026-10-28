@@ -37,15 +37,54 @@
 
     <style name="SettingsRow">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">52dp</item>
+        <item name="android:layout_height">54dp</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">18dp</item>
-        <item name="android:paddingEnd">18dp</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
         <item name="android:background">@drawable/settings_choice_bg</item>
         <item name="android:textColor">#FFFFFFFF</item>
         <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">@string/font_regular</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
+    </style>
+    <!-- A row with an on/off switch at its end; the code sets activated for on. -->
+    <style name="SettingsToggle" parent="SettingsRow">
+        <item name="android:drawableEnd">@drawable/settings_switch</item>
+    </style>
+    <style name="SettingsCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">22dp</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:padding">24dp</item>
+        <item name="android:background">@drawable/settings_card_bg</item>
+    </style>
+    <style name="SettingsSection">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FF7CD4FF</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:fontFamily">@string/font_medium</item>
+    </style>
+    <style name="SettingsLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">18dp</item>
+        <item name="android:textColor">#CCFFFFFF</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@string/font_regular</item>
+    </style>
+    <style name="SettingsHint">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:textColor">#99FFFFFF</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@string/font_regular</item>
     </style>
     <style name="SettingsColumnChoice" parent="SettingsRow">
         <item name="android:layout_width">0dp</item>

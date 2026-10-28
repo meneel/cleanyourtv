@@ -19,7 +19,7 @@ public class WeatherRulesTest {
         assertNotNull(r);
         assertEquals(32, r.tempC);   // 31.6 rounds, and the "°C" unit string is not mistaken for a number
         assertEquals(2, r.code);
-        assertEquals("Kolkata  32° · Partly cloudy", WeatherRules.line("Kolkata", r));
+        assertEquals("Kolkata  \u26C5 32\u00B0 \u00B7 Partly cloudy", WeatherRules.line("Kolkata", r, false));
     }
 
     @Test
@@ -81,5 +81,32 @@ public class WeatherRulesTest {
         assertFalse(Net.allowed("file:///etc/passwd"));
         assertFalse(Net.allowed("not a url"));
         assertTrue(Net.allowed("https://api.themoviedb.org/3/trending/movie/week"));
+    }
+
+    @Test
+    public void emojiFollowsTheCodeAndTheTimeOfDay() {
+        assertEquals("\u2600\uFE0F", WeatherRules.emoji(0, true));
+        assertEquals("\uD83C\uDF19", WeatherRules.emoji(0, false));       // clear night: moon
+        assertEquals("\u26C5", WeatherRules.emoji(2, true));
+        assertEquals("\u2601\uFE0F", WeatherRules.emoji(2, false));        // no sun behind a night cloud
+        assertEquals("\uD83C\uDF27\uFE0F", WeatherRules.emoji(63, true));
+        assertEquals("\u26C8\uFE0F", WeatherRules.emoji(95, false));
+        assertEquals("", WeatherRules.emoji(1234, true));                   // an unknown code shows no emoji, not a wrong one
+    }
+
+    @Test
+    public void parsesIsDayAndDefaultsToDay() {
+        assertFalse(WeatherRules.parse("{\"current\":{\"temperature_2m\":20.0,\"weather_code\":0,\"is_day\":0}}").day);
+        assertTrue(WeatherRules.parse("{\"current\":{\"temperature_2m\":20.0,\"weather_code\":0,\"is_day\":1}}").day);
+        assertTrue(WeatherRules.parse(OPEN_METEO).day);
+        assertTrue(WeatherRules.url(22.5, 88.3).contains("is_day"));
+    }
+
+    @Test
+    public void fahrenheitIsConvertedAndRounded() {
+        WeatherRules.Reading r = new WeatherRules.Reading(26, 3, true);
+        assertEquals("Kolkata  \u2601\uFE0F 26\u00B0 \u00B7 Overcast", WeatherRules.line("Kolkata", r, false));
+        assertEquals("Kolkata  \u2601\uFE0F 79\u00B0 \u00B7 Overcast", WeatherRules.line("Kolkata", r, true));
+        assertEquals("\u2744\uFE0F 14\u00B0 \u00B7 Snow", WeatherRules.line("", new WeatherRules.Reading(-10, 71, true), true));
     }
 }
