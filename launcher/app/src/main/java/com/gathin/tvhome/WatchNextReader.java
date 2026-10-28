@@ -71,6 +71,29 @@ final class WatchNextReader {
         }
     }
 
+    /**
+     * Titles of the films in Watch Next (rows with no season or episode), newest first, finished or not: the seeds
+     * for recommendations and the list of what was already watched. Empty when access is missing.
+     */
+    static List<String> movieTitles(Context ctx, int limit) {
+        List<String> out = new ArrayList<>();
+        try (Cursor c = open(ctx)) {
+            if (c == null) return out;
+            int title = c.getColumnIndex("title");
+            int season = c.getColumnIndex("season_display_number");
+            int episode = c.getColumnIndex("episode_display_number");
+            int seen = 0;
+            while (c.moveToNext() && seen++ < ROW_LIMIT && out.size() < limit) {
+                String t = text(c, title);
+                if (t == null || t.trim().isEmpty() || number(c, season) != 0 || number(c, episode) != 0) continue;
+                if (!out.contains(t.trim())) out.add(t.trim());
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "could not read titles: " + e);
+        }
+        return out;
+    }
+
     private static String text(Cursor c, int column) {
         return column < 0 || c.isNull(column) ? null : c.getString(column);
     }

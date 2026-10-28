@@ -205,6 +205,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final Map<String, Entry> watchEntries = new java.util.HashMap<>();
     /** Where the section starts in {@code items} and how many cards it holds (0: none); see watchRows(). */
     private int watchStart, watchCount;
+    /** The "Recommended for you" group, placed after the Continue-watching group (config recommendations). */
+    private final boolean recsOn;
+    private List<ContinueRules.Card> recCards = Collections.emptyList();
+    private int recStart, recCount;
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
     /** Apps pre-seeded into the App library's "added" set (config.xml library_apps); empty by default. */
@@ -258,6 +262,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.appBanners = cfg.appBanners;
         this.uniformTiles = cfg.uniformTiles;
         this.watchOn = cfg.continueWatching;
+        this.recsOn = cfg.recommendations;
         this.postersOn = cfg.continuePosters;
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.
@@ -557,6 +562,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         notifyDataSetChanged();
     }
 
+    /** Replaces the recommendation cards, which follow the Continue-watching cards. Null or empty removes them. */
+    void setRecommended(List<ContinueRules.Card> cards) {
+        recCards = cards == null ? Collections.<ContinueRules.Card>emptyList() : new ArrayList<>(cards);
+        placeWatch();
+        notifyDataSetChanged();
+    }
+
     boolean isWatchAt(int position) {
         return position >= 0 && position < items.size() && items.get(position).kind == Entry.WATCH;
     }
@@ -572,6 +584,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return watchCount == 0 ? null : WatchRows.of(watchStart, watchCount, dockSize);
     }
 
+    /** The recommendations' place in the grid, or null when there are none. */
+    WatchRows recRows() {
+        return recCount == 0 ? null : WatchRows.of(recStart, recCount, dockSize);
+    }
+
     /**
      * Puts the Continue-watching cards into {@code items} right after the dock row, then filler slots so the apps
      * below start a new row. Nothing is added when the row is off, there is no grid below the dock, or reorder
@@ -582,24 +599,41 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (isWatchPart(items.get(i))) items.remove(i);
         }
         watchCount = 0;
-        if (!watchOn || !dockRow || singleRow || reordering) return;
+        recCount = 0;
+        if (!(watchOn || recsOn) || !dockRow || singleRow || reordering) return;
         // Right after the dock row (its dockSize slots), even when more apps are docked than the row holds:
         // those spill into the grid below and the cards still come first under the dock.
         int at = Math.min(items.size(), Math.min(docked + emptySlots, dockSize));
-        watchStart = at;
         java.util.Set<String> live = new java.util.HashSet<>();
-        for (ContinueRules.Card c : watchCards) {
+        if (watchOn) {
+            watchStart = at;
+            int[] group = addGroup(at, watchCards, live, 0);
+            watchCount = group[0];
+            at = group[1];
+        }
+        if (recsOn) {
+            recStart = at;
+            int[] group = addGroup(at, recCards, live, 100);
+            recCount = group[0];
+        }
+        watchEntries.keySet().retainAll(live);
+    }
+
+    /** Inserts a group's cards at {@code at}, then filler slots to a whole row; returns {cards added, next position}. */
+    private int[] addGroup(int at, List<ContinueRules.Card> cards, java.util.Set<String> live, int fillerBase) {
+        int count = 0;
+        for (ContinueRules.Card c : cards) {
             Entry e = watchEntry(c);
             if (e == null) continue;
             live.add(c.key);
             items.add(at++, e);
-            watchCount++;
+            count++;
         }
-        int fillers = WatchRows.fillersFor(watchCount, dockSize);
+        int fillers = WatchRows.fillersFor(count, dockSize);
         for (int i = 0; i < fillers; i++) {
-            items.add(at++, new Entry(Entry.EMPTY, "", new ComponentName(ctx, WATCH_FILLER + i), null, null, null, 0));
+            items.add(at++, new Entry(Entry.EMPTY, "", new ComponentName(ctx, WATCH_FILLER + (fillerBase + i)), null, null, null, 0));
         }
-        watchEntries.keySet().retainAll(live);
+        return new int[]{count, at};
     }
 
     /** The tile for a card, reusing the earlier one (and its loaded poster) when the card did not change. */
@@ -661,6 +695,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** "S1 E2 - 50% watched" or "S5 E10 - Up next": the second caption line. */
     private String watchMeta(ContinueRules.Card c) {
+        if (c.key.startsWith("rec:")) return c.subtitle;   // "Netflix \u00B7 2023": no progress to show
         String state = c.progress >= 0f ? ctx.getString(R.string.continue_progress, Math.round(c.progress * 100f))
                 : ctx.getString(R.string.continue_up_next);
         return c.subtitle.isEmpty() ? state : c.subtitle + " \u00B7 " + state;
@@ -784,7 +819,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** Continue-watching cards are showing; they must leave the grid while reordering (placeWatch). */
     boolean hasWatch() {
-        return watchCount > 0;
+        return watchCount > 0 || recCount > 0;
     }
 
     /** Tiles that can be moved: everything but the "Default home" tile, which always stays last. */

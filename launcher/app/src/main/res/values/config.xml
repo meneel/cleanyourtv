@@ -300,6 +300,10 @@
          (Android lists other apps' sessions only for a notification-listener component; this one reads no
          notifications). Off by default; "now_playing": true in a theme. -->
     <bool name="now_playing">false</bool>
+    <!-- A "Recommended for you" group under Continue watching: films like the ones in Watch Next, or popular on the
+         streaming apps this TV has, from TMDB (api.themoviedb.org; titles from Watch Next are sent to it). Needs a
+         TMDB read token in files/tmdb_token on the TV. Off by default; "recommendations": true in a theme. -->
+    <bool name="recommendations">false</bool>
     <!-- Show °F instead of °C. -->
     <bool name="weather_fahrenheit">false</bool>
     <string name="weather_city"></string>

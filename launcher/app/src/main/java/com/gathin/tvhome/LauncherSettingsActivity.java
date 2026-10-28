@@ -37,8 +37,8 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView advancedChoice;
     private TextView followThemeChoice;
     private TextView openOnStartChoice;
-    private TextView nowPlayingChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
-    private boolean nowPlayingOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
+    private TextView nowPlayingChoice, recsChoice, continueChoice, weatherChoice, weatherUnitChoice, dockBandChoice, topShelfChoice;
+    private boolean nowPlayingOn, recsOn, continueOn, weatherOn, fahrenheit, dockBandOn, topShelfOn;
     private int columns;
     private int rowsBelowDock;
     private int dockOpacity;
@@ -64,6 +64,8 @@ public final class LauncherSettingsActivity extends Activity {
         advancedEffects = config.animations && config.advancedEffects;
         continueOn = config.continueWatching;
         nowPlayingOn = config.nowPlaying;
+        recsOn = config.recommendations;
+        recsChoice = homeToggle(R.id.recsChoice, "recommendations", () -> recsOn = !recsOn, () -> recsOn);
         nowPlayingChoice = homeToggle(R.id.nowPlayingChoice, "now_playing", () -> nowPlayingOn = !nowPlayingOn, () -> nowPlayingOn);
         weatherOn = config.weather;
         fahrenheit = config.weatherFahrenheit;
@@ -166,6 +168,7 @@ public final class LauncherSettingsActivity extends Activity {
             advancedEffects = current.animations && current.advancedEffects;
             continueOn = current.continueWatching;
             nowPlayingOn = current.nowPlaying;
+            recsOn = current.recommendations;
             weatherOn = current.weather;
             fahrenheit = current.weatherFahrenheit;
             dockBandOn = current.dockBand;
@@ -333,6 +336,7 @@ public final class LauncherSettingsActivity extends Activity {
         openOnStartChoice.setText(accentValue(getString(R.string.open_on_start_state, openOnStartLabel())));
         toggle(nowPlayingChoice, getString(R.string.now_playing_state), nowPlayingOn);
         toggle(continueChoice, getString(R.string.continue_state), continueOn);
+        toggle(recsChoice, getString(R.string.recommendations_state), recsOn);
         toggle(weatherChoice, getString(R.string.weather_state), weatherOn);
         weatherUnitChoice.setText(accentValue(getString(R.string.weather_unit_state, fahrenheit ? "\u00B0F" : "\u00B0C")));
         weatherUnitChoice.setEnabled(weatherOn);

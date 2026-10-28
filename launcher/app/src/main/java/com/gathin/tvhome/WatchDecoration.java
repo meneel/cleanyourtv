@@ -11,17 +11,18 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.Locale;
 
-/** The "CONTINUE WATCHING" heading above the section's first row, and a gap below its last row. */
+/** The "CONTINUE WATCHING" and "RECOMMENDED FOR YOU" headings above their groups' first rows, and a gap below each. */
 final class WatchDecoration extends RecyclerView.ItemDecoration {
     private final AppAdapter adapter;
     private final float density;
-    private final String heading;
+    private final String continueHeading, recsHeading;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     WatchDecoration(Context ctx, AppAdapter adapter) {
         this.adapter = adapter;
         this.density = ctx.getResources().getDisplayMetrics().density;
-        this.heading = ctx.getString(R.string.continue_heading).toUpperCase(Locale.getDefault());
+        this.continueHeading = ctx.getString(R.string.continue_heading).toUpperCase(Locale.getDefault());
+        this.recsHeading = ctx.getString(R.string.recommended_heading).toUpperCase(Locale.getDefault());
         paint.setTypeface(UiFont.get(ctx, R.string.font_medium));
         paint.setTextSize(12 * density);
         paint.setLetterSpacing(0.14f);
@@ -31,17 +32,22 @@ final class WatchDecoration extends RecyclerView.ItemDecoration {
     @Override
     public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, @NonNull RecyclerView parent,
                                @NonNull RecyclerView.State state) {
-        WatchRows rows = adapter.watchRows();
-        if (rows == null) return;
         int pos = parent.getChildAdapterPosition(view);
         if (pos < 0) return;
-        if (rows.inFirstRow(pos)) outRect.top += (int) (36 * density);
-        if (rows.inLastRow(pos)) outRect.bottom += (int) (22 * density);
+        for (WatchRows rows : new WatchRows[]{adapter.watchRows(), adapter.recRows()}) {
+            if (rows == null) continue;
+            if (rows.inFirstRow(pos)) outRect.top += (int) (36 * density);
+            if (rows.inLastRow(pos)) outRect.bottom += (int) (22 * density);
+        }
     }
 
     @Override
     public void onDraw(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-        WatchRows rows = adapter.watchRows();
+        draw(c, parent, adapter.watchRows(), continueHeading);
+        draw(c, parent, adapter.recRows(), recsHeading);
+    }
+
+    private void draw(Canvas c, RecyclerView parent, WatchRows rows, String heading) {
         if (rows == null) return;
         for (int i = 0; i < parent.getChildCount(); i++) {
             View child = parent.getChildAt(i);

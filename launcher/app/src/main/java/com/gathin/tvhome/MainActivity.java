@@ -244,7 +244,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean reducedMotion;
     /** config.xml dock_row: the first row is a separate dock (band, parked low, top shelf) rather than plain grid. */
     private boolean dockRow;
-    private boolean continueWatching;
+    private boolean continueWatching, recommendations;
+    private int recsGeneration;
     private int continueMax, continueMaxAgeDays, continueHidePercent;
     /** The Continue-watching cards Home shows now; the row is rebuilt only when a read gives different ones. */
     private List<ContinueRules.Card> shownWatch = java.util.Collections.emptyList();
@@ -426,6 +427,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         reducedMotion = cfg.reducedMotion;
         dockRow = cfg.dockRow;
         continueWatching = cfg.continueWatching;
+        recommendations = cfg.recommendations;
         continueMax = cfg.continueMax;
         continueMaxAgeDays = cfg.continueMaxAgeDays;
         continueHidePercent = cfg.continueHidePercent;
@@ -644,7 +646,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         fillDockLeavesSlots = !cfg.fillDock;
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
-        if (continueWatching) grid.addItemDecoration(new WatchDecoration(this, adapter));
+        if (continueWatching || recommendations) grid.addItemDecoration(new WatchDecoration(this, adapter));
         grid.setAdapter(adapter);
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
@@ -986,6 +988,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onResume();
         refreshWatch();
         refreshWeather();
+        refreshRecs();
         if (nowPlaying != null) nowPlaying.start();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -1116,6 +1119,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         weatherLine.setText(WeatherRules.line(city, weatherReading, weatherFahrenheit));
         weatherLine.setVisibility(View.VISIBLE);
     }
+
+    /**
+     * The recommendation cards: the cached ones at once, then, when the cache is older than 12 hours, a fresh set from
+     * TMDB, all on a worker thread. Home changes only when the cards differ.
+     */
+    private void refreshRecs() {
+        if (!recommendations) return;
+        final int generation = ++recsGeneration;
+        new Thread(() -> {
+            List<ContinueRules.Card> cards = Recs.cached(this);
+            applyRecs(cards, generation);
+            if (Recs.stale(this)) {
+                List<ContinueRules.Card> fresh = Recs.refresh(this);
+                if (fresh != null) applyRecs(fresh, generation);
+            }
+        }, "recs").start();
+    }
+
+    private void applyRecs(List<ContinueRules.Card> cards, int generation) {
+        runOnUiThread(() -> {
+            if (isDestroyed() || generation != recsGeneration || cards.equals(shownRecs)) return;
+            shownRecs = cards;
+            if (adapter != null) adapter.setRecommended(cards);
+        });
+    }
+
+    private List<ContinueRules.Card> shownRecs = java.util.Collections.emptyList();
 
     /** Reads the Continue-watching rows off the main thread; Home changes only when the cards differ. */
     private void refreshWatch() {

@@ -30,8 +30,15 @@ final class Net {
         }
     }
 
-    /** The reply body, or null for a refused address, a non-200, or a body over the cap. Call off the main thread. */
     static String getText(String url) throws IOException {
+        return getText(url, null);
+    }
+
+    /**
+     * The reply body, or null for a refused address, a non-200, or a body over the cap. Call off the main thread.
+     * A bearer token is sent only to api.themoviedb.org, whatever else is asked for.
+     */
+    static String getText(String url, String bearer) throws IOException {
         if (!allowed(url)) return null;
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         try {
@@ -41,6 +48,9 @@ final class Net {
             conn.setInstanceFollowRedirects(false);   // a redirect could leave the allowed hosts
             conn.setRequestProperty("User-Agent", "tvhome");
             conn.setRequestProperty("Accept", "application/json");
+            if (bearer != null && "api.themoviedb.org".equals(conn.getURL().getHost())) {
+                conn.setRequestProperty("Authorization", "Bearer " + bearer);
+            }
             if (conn.getResponseCode() != 200) return null;
             try (InputStream in = conn.getInputStream()) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream(4096);
