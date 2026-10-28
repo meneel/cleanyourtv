@@ -855,6 +855,14 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return position >= 0 && position < items.size() ? items.get(position).component.flattenToShortString() : null;
     }
 
+    /** True when a tile belongs to this package. */
+    boolean hasPackage(String pkg) {
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i).component.getPackageName().equals(pkg)) return true;
+        }
+        return false;
+    }
+
     /** Position of the app with this key, or -1 when it is gone. */
     int positionOf(String key) {
         if (key == null) return -1;

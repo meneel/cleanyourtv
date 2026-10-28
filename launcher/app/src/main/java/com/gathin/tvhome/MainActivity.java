@@ -394,6 +394,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Updates send REMOVED followed by ADDED; keep the tile until the new APK is ready.
             if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
                     && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            if (intent.getData() != null && !affectsTiles(intent.getData().getSchemeSpecificPart())) return;
             // In the background this only marks the tiles stale; onResume rebuilds them once.
             if (!tileRefresh.onPackagesChanged()) return;
             reloadApps(false);
@@ -999,6 +1000,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -1393,7 +1395,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** True when PackageManager reports apps changed since the last rebuild (one binder call). */
     private boolean packagesChangedSinceRebuild() {
         ChangedPackages changed = getPackageManager().getChangedPackages(packageSequence);
-        return changed != null && !changed.getPackageNames().isEmpty();
+        if (changed == null) return false;
+        for (String name : changed.getPackageNames()) {
+            if (affectsTiles(name)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether a changed package can alter the tiles: it has a launcher activity, or a tile of it is showing (it was
+     * removed or disabled). Amazon's com.amazon.ceviche changes state on every Home press; rebuilding the tiles for
+     * it took 0.3-3 s of the main thread on every return from an app, and nothing on screen differed.
+     */
+    private boolean affectsTiles(String pkg) {
+        return pkg == null || adapter.hasPackage(pkg)
+                || getPackageManager().getLeanbackLaunchIntentForPackage(pkg) != null;
     }
 
     private int currentPackageSequence(int since) {
