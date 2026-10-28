@@ -1,3 +1,8 @@
+> **This is a modified fork, not the original project.** It is a personal fork of [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)
+> by Gathin, kept under the original MIT licence. It is **not** the official cleanyourtv, is not maintained, endorsed or
+> supported by Gathin, and its bugs are mine, not theirs. For the real project, go to
+> [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv). What I changed: see [FORK.md](FORK.md). Licence and original copyright: [LICENSE](LICENSE).
+
 <p align="center">
   <a href="https://cleanyour.tv"><img src="https://raw.githubusercontent.com/Gathin23/cleanyourtv/main/docs/banner.png" alt="CleanYourTV. Your TV, minus the ads. Strip the bloatware from any Android TV or Google TV over Wi-Fi and replace the ad-filled home screen with a clean launcher that looks like an Apple TV. No root, no cable, nothing uninstalled, and a one-line restore." width="800"></a>
 </p>
