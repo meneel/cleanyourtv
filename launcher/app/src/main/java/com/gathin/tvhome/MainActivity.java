@@ -174,6 +174,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float ambientMax = 1f;
     private boolean closeApps, peekListenerAdded, gridAnimating;
     private long lastCloseScheduled;
+    private static final long SLIDE_MS = 360L;
+    /** New featured titles that arrived while the featured screen was up: applied once it is not (never swap under the viewer). */
+    private List<FeaturedRules.Title> pendingFeatured;
+    private final Runnable hourlyRefresh = new Runnable() {
+        @Override
+        public void run() {
+            refreshFeatured();
+            refreshRecs();
+            root.postDelayed(this, 10 * 60 * 1000L);   // each tick refetches only if the cache is an hour old
+        }
+    };
     private final Runnable closeAppsTask = () -> AppCloser.closeBackgroundApps(this);
     private ValueAnimator ambientAnimator;
     private boolean heroShown;
@@ -1002,6 +1013,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refreshWeather();
         refreshRecs();
         refreshFeatured();
+        root.removeCallbacks(hourlyRefresh);
+        root.postDelayed(hourlyRefresh, 10 * 60 * 1000L);
         // Close what is no longer on screen. Two things hold an app above the tier an ordinary app may close: a running
         // service (so the apps are denied RUN_IN_BACKGROUND over adb, scan/appops-restricted.txt) and being Android's
         // "previous app" (so a window-less activity in another process, BumpActivity, takes that slot first). Returning
@@ -1145,6 +1158,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (featured == null || !featured.hasTitles() || reordering || openPopup != null) return;
         featuredMode = true;
         featuredEnterPending = false;
+        ambient.animate().cancel();
+        ambient.setAlpha(0f);   // cut, not faded: a second full-screen fade beside the blur's is what made this transition stutter
         hideHero();
         hideGlass();
         grid.scrollToPosition(0);
@@ -1169,7 +1184,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             grid.animate().cancel();
             if (animate && animations && !reducedMotion) {
                 gridAnimating = true;
-                grid.animate().translationY(to).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator())
+                grid.animate().setStartDelay(FeaturedCarousel.SEQUENCE_MS).translationY(to).setDuration(SLIDE_MS).setInterpolator(new android.view.animation.PathInterpolator(0.22f, 0.0f, 0.12f, 1.0f))
                         .withEndAction(() -> gridAnimating = false).start();
             } else {
                 gridAnimating = false;
@@ -1182,6 +1197,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void enterDock(boolean animate) {
         if (!featuredMode) return;
         featuredMode = false;
+        if (pendingFeatured != null) {   // behind the dock now: swap in the hour's new titles
+            shownFeatured = pendingFeatured;
+            featured.setTitles(pendingFeatured);
+            pendingFeatured = null;
+        }
         featured.setLevel(FeaturedCarousel.SOFT, animate);
         showPeekGlass(false, animate);
         grid.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
@@ -1189,7 +1209,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.animate().cancel();
         if (animate && animations && !reducedMotion) {
             gridAnimating = true;
-            grid.animate().translationY(0f).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator())
+            grid.animate().setStartDelay(0).translationY(0f).setDuration(SLIDE_MS).setInterpolator(new android.view.animation.PathInterpolator(0.22f, 0.0f, 0.12f, 1.0f))
                     .withEndAction(() -> {
                         gridAnimating = false;
                         focus.run();
@@ -1207,7 +1227,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glass.animate().cancel();
         if (show) glass.setVisibility(View.VISIBLE);
         if (animate && animations && !reducedMotion) {
-            glass.animate().alpha(show ? 1f : 0f).setDuration(420).withEndAction(() -> { if (!show) glass.setVisibility(View.GONE); }).start();
+            glass.animate().setStartDelay(show ? FeaturedCarousel.SEQUENCE_MS : 0L).alpha(show ? 1f : 0f).setDuration(360).withEndAction(() -> { if (!show) glass.setVisibility(View.GONE); }).start();
         } else {
             glass.setAlpha(show ? 1f : 0f);
             if (!show) glass.setVisibility(View.GONE);
@@ -1256,6 +1276,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void applyFeatured(List<FeaturedRules.Title> titles, int generation) {
         runOnUiThread(() -> {
             if (isDestroyed() || generation != featuredGeneration || featured == null || sameTitles(titles, shownFeatured)) return;
+            if (featuredMode && featured.hasTitles() && !titles.isEmpty()) {
+                pendingFeatured = titles;   // the viewer is on the featured screen: swap when they leave it
+                return;
+            }
             shownFeatured = titles;
             featured.setTitles(titles);
             if (!titles.isEmpty()) wallpaperPlayer.releaseForMemoryPressure();
@@ -1424,6 +1448,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.removeCallbacks(showIdleClock);
         if (nowPlaying != null) nowPlaying.stop();
         if (featured != null) featured.stop();
+        root.removeCallbacks(hourlyRefresh);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
         stopAmbientAnimation();

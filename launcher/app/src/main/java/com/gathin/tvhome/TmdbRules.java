@@ -17,7 +17,7 @@ final class TmdbRules {
     static final String IMAGE = "https://image.tmdb.org/t/p/w500";
     static final String REGION = "IN";
     static final int MAX_CARDS = 6, FRANCHISE_CAP = 2;
-    static final long MAX_AGE_MS = 12L * 60 * 60 * 1000;
+    static final long MAX_AGE_MS = 60L * 60 * 1000;   // an hour: the lists are re-picked (page and shuffle follow the hour)
 
     /** TMDB watch-provider id, the TV app that plays it, and its name on the card. */
     private static final int[] PROVIDER_ID = {8, 119, 350, 2336, 315};
@@ -81,7 +81,8 @@ final class TmdbRules {
     /** The most popular, well-voted films on one provider in the region. */
     static String discoverUrl(int providerId) {
         return API + "/discover/movie?include_adult=false&sort_by=popularity.desc&vote_count.gte=300&vote_average.gte=6.3"
-                + "&with_watch_monetization_types=flatrate&watch_region=" + REGION + "&with_watch_providers=" + providerId;
+                + "&with_watch_monetization_types=flatrate&watch_region=" + REGION + "&with_watch_providers=" + providerId
+                + "&page=" + FeaturedRules.pageForHour(System.currentTimeMillis());
     }
 
     static String enc(String s) {

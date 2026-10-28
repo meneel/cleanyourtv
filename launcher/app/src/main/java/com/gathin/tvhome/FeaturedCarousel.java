@@ -2,7 +2,10 @@ package com.gathin.tvhome;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
+import android.graphics.ComposeShader;
+import android.graphics.PorterDuff;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Shader;
@@ -47,6 +50,10 @@ final class FeaturedCarousel {
     private static final String TAG = "TvHomeFeatured";
     private static final long TURN_MS = 9000L, SLIDE_MS = 420L, FADE_MS = 260L, TEXT_OUT_MS = 130L, TEXT_IN_MS = 260L;
     private static final int KEEP_SHARP = 2;
+    /** Going up to the featured screen: the blur fades first, then the dock slides and the text returns. */
+    static final long SEQUENCE_MS = 240L;
+    /** How much of the picture's height the blurred top and bottom bands cover. */
+    static final float EDGE_TOP = 0.26f, EDGE_BOTTOM = 0.30f;
     /** Blur copies: the size they are blurred at (width in pixels), the Gaussian radius (1 to 25) and the darkening. */
     static final int SOFT_WIDTH = 384, SOFT_RADIUS = 7, SOFT_SHADE = 0x4D;
     static final int HEAVY_WIDTH = 128, HEAVY_RADIUS = 22, HEAVY_SHADE = 0x73;
@@ -202,13 +209,17 @@ final class FeaturedCarousel {
         info.animate().cancel();
         hint.animate().cancel();
         if (!animate || old == newLevel) {
+            info.animate().setStartDelay(0);
+            hint.animate().setStartDelay(0);
             info.setAlpha(textTo);
             hint.setAlpha(textTo);
             settle.run();
             return;
         }
-        info.animate().alpha(textTo).setDuration(newLevel == SHARP ? TEXT_IN_MS : TEXT_OUT_MS).start();
-        hint.animate().alpha(textTo).setDuration(newLevel == SHARP ? TEXT_IN_MS : TEXT_OUT_MS).start();
+        // Coming back to SHARP the text waits for the blur to finish fading: one full-screen change at a time.
+        long wait = newLevel == SHARP ? SEQUENCE_MS : 0L;
+        info.animate().setStartDelay(wait).alpha(textTo).setDuration(newLevel == SHARP ? TEXT_IN_MS : TEXT_OUT_MS).start();
+        hint.animate().setStartDelay(wait).alpha(textTo).setDuration(newLevel == SHARP ? TEXT_IN_MS : TEXT_OUT_MS).start();
         if (newLevel == SOFT) {
             soft.setVisibility(View.VISIBLE);
             if (old == SHARP) {
@@ -317,6 +328,22 @@ final class FeaturedCarousel {
         if (i < 0 || i >= softs.length) return;
         soft.setImageBitmap(softs[i]);
         heavy.setImageBitmap(heavies[i]);
+        warm(soft);
+        warm(heavy);
+    }
+
+    /**
+     * Draws a hidden layer once so its texture is on the GPU before it is needed: the first draw uploads it, and doing
+     * that on the first frame of a transition was a visible hitch. Visible at near-zero alpha for one frame, then gone.
+     */
+    private void warm(ImageView layer) {
+        if (level != SHARP || layer.getDrawable() == null) return;
+        layer.setVisibility(View.VISIBLE);
+        layer.setAlpha(0.01f);
+        layer.post(() -> {
+            if (level == SHARP) layer.setVisibility(View.GONE);
+            layer.setAlpha(1f);
+        });
     }
 
     private void load(int i) {
@@ -333,7 +360,6 @@ final class FeaturedCarousel {
             // Baking draws gradients, scales and blurs bitmaps: off the main thread.
             baker.execute(() -> {
                 if (gen != setGeneration) return;
-                final Bitmap baked = bakeSharp(bitmap);
                 Bitmap s0 = softs[i], h0 = heavies[i];
                 try {
                     if (s0 == null || h0 == null) rs = RenderScript.create(activity.getApplicationContext());
@@ -351,6 +377,8 @@ final class FeaturedCarousel {
                     }
                 }
                 final Bitmap s = s0, h = h0;
+                // The sharp picture gets the soft blur drawn into its top and bottom edges, so the header and the dock read.
+                final Bitmap baked = bakeSharp(bitmap, s);
                 ui.post(() -> {
                     if (gen != setGeneration || i >= loading.length) return;
                     loading[i] = false;
@@ -367,13 +395,29 @@ final class FeaturedCarousel {
     }
 
     /** A copy of the picture with the three dark edges (left for the text, bottom for the dock, top for the header) drawn in. */
-    static Bitmap bakeSharp(Bitmap src) {
+    static Bitmap bakeSharp(Bitmap src, Bitmap softBlur) {
         try {
             Bitmap out = src.copy(Bitmap.Config.RGB_565, true);
             if (out == null) return null;
             Canvas c = new Canvas(out);
             int w = out.getWidth(), h = out.getHeight();
             Paint p = new Paint();
+            if (softBlur != null) {
+                // Progressive blur: the soft copy, stretched to the picture, shows through a gradient mask that is fully
+                // opaque at the top and bottom edges and clear in the middle (ComposeShader DST_IN keeps the copy where the
+                // mask is opaque). The header sits on the top band and the dock on the bottom one.
+                BitmapShader blurShader = new BitmapShader(softBlur, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                android.graphics.Matrix fit = new android.graphics.Matrix();
+                fit.setScale(w / (float) softBlur.getWidth(), h / (float) softBlur.getHeight());
+                blurShader.setLocalMatrix(fit);
+                Paint band = new Paint(Paint.FILTER_BITMAP_FLAG);
+                band.setShader(new ComposeShader(blurShader,
+                        new LinearGradient(0, 0, 0, h * EDGE_TOP, 0xFFFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP), PorterDuff.Mode.DST_IN));
+                c.drawRect(0, 0, w, h * EDGE_TOP, band);
+                band.setShader(new ComposeShader(blurShader,
+                        new LinearGradient(0, h * (1f - EDGE_BOTTOM), 0, h, 0x00FFFFFF, 0xFFFFFFFF, Shader.TileMode.CLAMP), PorterDuff.Mode.DST_IN));
+                c.drawRect(0, h * (1f - EDGE_BOTTOM), w, h, band);
+            }
             p.setShader(new LinearGradient(0, 0, w * 0.78f, 0, new int[]{0xE6000000, 0x66000000, 0x00000000}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
             c.drawRect(0, 0, w, h, p);
             p.setShader(new LinearGradient(0, h, 0, h * 0.30f, new int[]{0xF2000000, 0x80000000, 0x00000000}, new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));

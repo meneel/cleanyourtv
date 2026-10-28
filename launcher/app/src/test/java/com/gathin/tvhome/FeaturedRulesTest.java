@@ -72,6 +72,18 @@ public class FeaturedRulesTest {
     }
 
     @Test
+    public void theHourPicksAPageAndAShuffleThatChangeEveryHour() {
+        long h = 3_600_000L;
+        assertEquals(java.util.Arrays.asList(1, 2, 3, 1), java.util.Arrays.asList(FeaturedRules.pageForHour(0), FeaturedRules.pageForHour(h), FeaturedRules.pageForHour(2 * h), FeaturedRules.pageForHour(3 * h)));
+        assertEquals(FeaturedRules.pageForHour(5 * h), FeaturedRules.pageForHour(5 * h + 3_599_000L));   // same hour, same page
+        List<Integer> base = java.util.Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        assertEquals(FeaturedRules.shuffled(base, 42), FeaturedRules.shuffled(base, 42));
+        assertFalse(FeaturedRules.shuffled(base, 42).equals(FeaturedRules.shuffled(base, 43)));
+        assertEquals(10, new java.util.HashSet<>(FeaturedRules.shuffled(base, 7)).size());              // nothing lost or doubled
+        assertTrue(FeaturedRules.discoverUrl("movie", java.util.Arrays.asList(8), "popularity.desc", null, 1, 6.0, 2).endsWith("&page=2"));
+    }
+
+    @Test
     public void longTitlesGetASmallerSizeAndAShorterSummary() {
         assertEquals(58, FeaturedRules.titleSizeSp("Dragon Ball Super: Beerus"));                       // 25 chars: one line at full size
         assertEquals(44, FeaturedRules.titleSizeSp("Harry Potter and the Prisoner of Azkaban"));         // 40 chars: wraps

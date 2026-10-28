@@ -45,6 +45,22 @@ final class FeaturedRules {
         }
     }
 
+    /** Which page of TMDB's results to read: 1, 2 or 3 as the hour moves on, so the same query gives different titles. */
+    static int pageForHour(long nowMs) {
+        return 1 + (int) ((nowMs / 3_600_000L) % 3);
+    }
+
+    /** The list in an order fixed by {@code seed} (the hour): the same hour gives the same order, the next hour another. */
+    static <T> List<T> shuffled(List<T> list, long seed) {
+        List<T> out = new ArrayList<>(list);
+        java.util.Collections.shuffle(out, new java.util.Random(seed));
+        return out;
+    }
+
+    static String discoverUrl(String type, List<Integer> providerIds, String sort, String dateGte, int minVotes, double minRating, int page) {
+        return discoverUrl(type, providerIds, sort, dateGte, minVotes, minRating) + "&page=" + page;
+    }
+
     /** discover for one kind of title on any of the given TMDB provider ids (pipe = OR), in the region. */
     static String discoverUrl(String type, List<Integer> providerIds, String sort, String dateGte, int minVotes, double minRating) {
         StringBuilder ids = new StringBuilder();

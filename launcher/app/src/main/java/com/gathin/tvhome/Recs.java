@@ -26,7 +26,7 @@ final class Recs {
     }
 
     private static File cacheFile(Context ctx) {
-        return new File(ctx.getFilesDir(), "recs-v2.tsv");   // v2: the ranking changed, old caches are ignored
+        return new File(ctx.getFilesDir(), "recs-v3.tsv");   // v3: hourly seeds; old caches are ignored
     }
 
     static List<ContinueRules.Card> cached(Context ctx) {
@@ -75,15 +75,17 @@ final class Recs {
         for (String pkg : TmdbRules.knownPackages()) if (installed(pm, pkg)) apps.add(pkg);
         if (apps.isEmpty()) return null;
         List<String> watched = WatchNextReader.movieTitles(ctx, 40);
+        final long hourSeed = System.currentTimeMillis() / 3_600_000L;
+        List<String> seedOrder = FeaturedRules.shuffled(watched, hourSeed);   // other series seed it each hour
         Set<String> watchedNormal = new HashSet<>();
         for (String t : watched) watchedNormal.add(TmdbRules.normal(t));
         try {
             List<List<TmdbRules.Movie>> perSeed = new ArrayList<>();
             Set<Long> seedIds = new HashSet<>();
             Set<String> seedFranchises = new HashSet<>();
-            for (int i = 0; i < watched.size() && perSeed.size() < SEEDS; i++) {
-                if (!seedFranchises.add(TmdbRules.franchise(watched.get(i)))) continue;   // one seed per series
-                long id = TmdbRules.firstMovieId(Net.getText(TmdbRules.searchUrl(watched.get(i)), token));
+            for (int i = 0; i < seedOrder.size() && perSeed.size() < SEEDS; i++) {
+                if (!seedFranchises.add(TmdbRules.franchise(seedOrder.get(i)))) continue;   // one seed per series
+                long id = TmdbRules.firstMovieId(Net.getText(TmdbRules.searchUrl(seedOrder.get(i)), token));
                 if (id < 0) continue;
                 seedIds.add(id);
                 List<TmdbRules.Movie> list = TmdbRules.movies(Net.getText(TmdbRules.recommendationsUrl(id), token));

@@ -27,7 +27,7 @@ final class Featured {
     }
 
     private static File cacheFile(Context ctx) {
-        return new File(ctx.getFilesDir(), "featured-v2.tsv");
+        return new File(ctx.getFilesDir(), "featured-v3.tsv");
     }
 
     static List<FeaturedRules.Title> cached(Context ctx) {
@@ -62,8 +62,12 @@ final class Featured {
         }
         if (apps.isEmpty()) return null;
         String recent18 = LocalDate.now().minusMonths(18).toString(), recent12 = LocalDate.now().minusMonths(12).toString();
+        final long now = System.currentTimeMillis(), hourSeed = now / 3_600_000L;
+        final int page = FeaturedRules.pageForHour(now);
         try {
             List<String> films = WatchNextReader.movieTitles(ctx, 40), shows = WatchNextReader.seriesTitles(ctx, 20);
+            // Which watched titles seed the recommendations changes with the hour, so it is not the same series every time.
+            List<String> filmSeeds = FeaturedRules.shuffled(films, hourSeed), showSeeds = FeaturedRules.shuffled(shows, hourSeed + 1);
             Set<String> watched = new HashSet<>();
             for (String t : films) watched.add(TmdbRules.normal(t));
             for (String t : shows) watched.add(TmdbRules.normal(t));
@@ -71,24 +75,25 @@ final class Featured {
             // Because of what was watched: films from up to two series, and one show.
             List<FeaturedRules.Title> forFilms = new ArrayList<>(), forShows = new ArrayList<>();
             Set<String> franchises = new HashSet<>();
-            for (int i = 0; i < films.size() && franchises.size() < 2; i++) {
-                if (!franchises.add(TmdbRules.franchise(films.get(i)))) continue;
-                long id = TmdbRules.firstMovieId(get(TmdbRules.searchUrl(films.get(i)), token));
+            for (int i = 0; i < filmSeeds.size() && franchises.size() < 2; i++) {
+                if (!franchises.add(TmdbRules.franchise(filmSeeds.get(i)))) continue;
+                long id = TmdbRules.firstMovieId(get(TmdbRules.searchUrl(filmSeeds.get(i)), token));
                 if (id >= 0) forFilms.addAll(first(FeaturedRules.titles(get(FeaturedRules.recommendationsUrl(FeaturedRules.MOVIE, id), token), FeaturedRules.MOVIE, FeaturedRules.TAG_FOR_YOU, 300), PER_LIST));
             }
-            if (!shows.isEmpty()) {
-                long id = TmdbRules.firstMovieId(get(FeaturedRules.tvSearchUrl(shows.get(0)), token));
+            if (!showSeeds.isEmpty()) {
+                long id = TmdbRules.firstMovieId(get(FeaturedRules.tvSearchUrl(showSeeds.get(0)), token));
                 if (id >= 0) forShows.addAll(first(FeaturedRules.titles(get(FeaturedRules.recommendationsUrl(FeaturedRules.TV, id), token), FeaturedRules.TV, FeaturedRules.TAG_FOR_YOU, 150), PER_LIST));
             }
             List<FeaturedRules.Title> recommended = alternate(forShows, forFilms);
 
-            List<FeaturedRules.Title> freshMovies = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.MOVIE, providerIds, "popularity.desc", recent18, 150, 6.5), token), FeaturedRules.MOVIE, FeaturedRules.TAG_NEW, 0);
-            List<FeaturedRules.Title> freshShows = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.TV, providerIds, "popularity.desc", recent12, 80, 7.0), token), FeaturedRules.TV, FeaturedRules.TAG_NEW, 0);
-            List<FeaturedRules.Title> topMovies = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.MOVIE, providerIds, "vote_average.desc", null, 3000, 7.5), token), FeaturedRules.MOVIE, FeaturedRules.TAG_TOP, 0);
-            List<FeaturedRules.Title> topShows = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.TV, providerIds, "vote_average.desc", null, 1500, 8.0), token), FeaturedRules.TV, FeaturedRules.TAG_TOP, 0);
+            List<FeaturedRules.Title> freshMovies = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.MOVIE, providerIds, "popularity.desc", recent18, 150, 6.5, page), token), FeaturedRules.MOVIE, FeaturedRules.TAG_NEW, 0);
+            List<FeaturedRules.Title> freshShows = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.TV, providerIds, "popularity.desc", recent12, 80, 7.0, page), token), FeaturedRules.TV, FeaturedRules.TAG_NEW, 0);
+            List<FeaturedRules.Title> topMovies = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.MOVIE, providerIds, "vote_average.desc", null, 3000, 7.5, page), token), FeaturedRules.MOVIE, FeaturedRules.TAG_TOP, 0);
+            List<FeaturedRules.Title> topShows = FeaturedRules.titles(get(FeaturedRules.discoverUrl(FeaturedRules.TV, providerIds, "vote_average.desc", null, 1500, 8.0, page), token), FeaturedRules.TV, FeaturedRules.TAG_TOP, 0);
 
             List<FeaturedRules.Title> candidates = FeaturedRules.mix(dropWatched(recommended, watched),
-                    dropWatched(alternate(freshShows, freshMovies), watched), dropWatched(alternate(topShows, topMovies), watched), 16);
+                    FeaturedRules.shuffled(dropWatched(alternate(freshShows, freshMovies), watched), hourSeed),
+                    FeaturedRules.shuffled(dropWatched(alternate(topShows, topMovies), watched), hourSeed + 2), 16);
             List<FeaturedRules.Title> out = new ArrayList<>();
             for (FeaturedRules.Title t : candidates) {
                 if (out.size() >= FeaturedRules.MAX_TITLES) break;
