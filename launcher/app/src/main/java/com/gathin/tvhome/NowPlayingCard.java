@@ -22,6 +22,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.List;
+import java.util.function.IntConsumer;
 
 /**
  * The header's Now Playing card: album art, title, artist and previous / play-pause / next for whatever media session
@@ -61,9 +62,12 @@ final class NowPlayingCard {
         }
     };
     private final Runnable recheck = this::refresh;
+    private final IntConsumer onWidth;
 
-    NowPlayingCard(Activity activity, View card) {
+    /** @param onWidth told the card's width in pixels when it shows, 0 when it hides, so the header can make room. */
+    NowPlayingCard(Activity activity, View card, IntConsumer onWidth) {
         this.ctx = activity;
+        this.onWidth = onWidth;
         this.card = card;
         art = card.findViewById(R.id.npArt);
         title = card.findViewById(R.id.npTitle);
@@ -166,11 +170,13 @@ final class NowPlayingCard {
             card.setAlpha(0f);
             card.setVisibility(View.VISIBLE);
             card.animate().alpha(1f).setDuration(250).start();
+            card.post(() -> onWidth.accept(card.getWidth()));
         }
     }
 
     private void hide() {
         card.animate().cancel();
+        if (card.getVisibility() != View.GONE) onWidth.accept(0);
         card.setVisibility(View.GONE);
     }
 

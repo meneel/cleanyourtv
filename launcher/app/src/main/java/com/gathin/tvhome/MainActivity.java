@@ -523,7 +523,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
         weatherLine = findViewById(R.id.weatherLine);
-        if (cfg.nowPlaying) nowPlaying = new NowPlayingCard(this, findViewById(R.id.nowPlaying));
+        if (cfg.nowPlaying) nowPlaying = new NowPlayingCard(this, findViewById(R.id.nowPlaying), width -> {
+            // The card floats over the header: stop the date and weather lines short of it (they ellipsize).
+            View left = findViewById(R.id.leftBlock);
+            RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) left.getLayoutParams();
+            int end = width == 0 ? (int) (16 * getResources().getDisplayMetrics().density)
+                    : width + (int) (34 * getResources().getDisplayMetrics().density);
+            if (lp.getMarginEnd() != end) {
+                lp.setMarginEnd(end);
+                left.setLayoutParams(lp);
+            }
+        });
         weatherOn = cfg.weather;
         weatherIp = cfg.weatherIp;
         weatherFahrenheit = cfg.weatherFahrenheit;
