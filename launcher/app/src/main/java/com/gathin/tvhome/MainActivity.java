@@ -189,14 +189,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView lunarDate;
     private TextView weatherLine;
     private NowPlayingCard nowPlaying;
-    private boolean weatherOn, weatherIp, weatherFahrenheit, weatherBusy;
+    private boolean weatherOn, weatherIp, weatherFahrenheit;
     private String weatherCity;
     private double weatherLat, weatherLon;
-    // Process-lifetime cache: Home is re-created often, the network should not be.
-    private static WeatherRules.Reading weatherReading;
-    private static WeatherRules.Place weatherPlace;
-    private static long weatherAttemptAt, placeAttemptAt;
-    private static boolean weatherOk;
     private boolean lunar;
     private int lunarOffset;
     private TextView stats;
@@ -1075,48 +1070,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         toggleReorder();
     }
 
-    /**
-     * The weather line: shows the cached reading at once, then, when it is due, looks the place up (IP, once a day,
-     * else the configured coordinates) and fetches the temperature on a worker thread. Failures keep the old line.
-     */
+    /** The weather line: the shared reading at once, then a refetch when it is due (see WeatherStore). */
     private void refreshWeather() {
-        if (!weatherOn || weatherBusy) return;
+        if (!weatherOn) return;
         showWeather();
-        final long now = System.currentTimeMillis();
-        if (!WeatherRules.due(weatherAttemptAt, weatherOk, now)) return;
-        weatherBusy = true;
-        weatherAttemptAt = now;
-        final boolean lookUp = weatherIp && (weatherPlace == null || now - placeAttemptAt >= WeatherRules.LOCATION_MS);
-        new Thread(() -> {
-            WeatherRules.Reading reading = null;
-            WeatherRules.Place place = weatherPlace;
-            try {
-                if (lookUp) {
-                    placeAttemptAt = now;
-                    WeatherRules.Place found = WeatherRules.parseLocation(Net.getText(WeatherRules.IP_URL));
-                    if (found != null) place = found;
-                }
-                double lat = place != null ? place.lat : weatherLat, lon = place != null ? place.lon : weatherLon;
-                if (WeatherRules.validCoordinates(lat, lon)) reading = WeatherRules.parse(Net.getText(WeatherRules.url(lat, lon)));
-            } catch (java.io.IOException | RuntimeException e) {
-                android.util.Log.w("TvHomeWeather", "weather not updated: " + e);
-            }
-            final WeatherRules.Reading r = reading;
-            final WeatherRules.Place p = place;
-            runOnUiThread(() -> {
-                weatherBusy = false;
-                weatherOk = r != null;
-                if (p != null) weatherPlace = p;
-                if (r != null) weatherReading = r;
-                if (!isDestroyed()) showWeather();
-            });
-        }, "weather").start();
+        WeatherStore.refreshIfDue(this, weatherIp, weatherLat, weatherLon, () -> {
+            if (!isDestroyed()) showWeather();
+        });
     }
 
     private void showWeather() {
-        if (weatherReading == null) return;
-        String city = weatherPlace != null && !weatherPlace.city.isEmpty() ? weatherPlace.city : weatherCity;
-        weatherLine.setText(WeatherRules.line(city, weatherReading, weatherFahrenheit));
+        WeatherRules.Reading reading = WeatherStore.reading();
+        if (reading == null) return;
+        WeatherRules.Place place = WeatherStore.place();
+        String city = place != null && !place.city.isEmpty() ? place.city : weatherCity;
+        weatherLine.setText(WeatherRules.line(city, reading, weatherFahrenheit));
         weatherLine.setVisibility(View.VISIBLE);
     }
 

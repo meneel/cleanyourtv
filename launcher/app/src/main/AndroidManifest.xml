@@ -205,6 +205,19 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Aurora screensaver: drifting colour fields, a large clock, the date and the weather. Select it with
+             `settings put secure screensaver_components com.gathin.tvhome/.AuroraDream` over adb. -->
+        <service
+            android:name=".AuroraDream"
+            android:label="@string/dream_aurora_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!-- Screensaver: pick it in Settings, or `settings put secure screensaver_components
              com.gathin.tvhome/.ClockDream` over adb. -->
         <service

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aurora screensaver (AuroraDream): three soft colour fields drifting over near-black, and a large thin clock,
+     the date and the weather at the bottom left. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/auroraRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF04060C">
+
+    <View android:id="@+id/fieldA" android:layout_width="460dp" android:layout_height="460dp" android:importantForAccessibility="no" />
+    <View android:id="@+id/fieldB" android:layout_width="460dp" android:layout_height="460dp" android:importantForAccessibility="no" />
+    <View android:id="@+id/fieldC" android:layout_width="460dp" android:layout_height="460dp" android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:id="@+id/auroraContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="88dp"
+        android:layout_marginBottom="72dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="true">
+
+            <TextClock
+                android:id="@+id/auroraTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="h:mm"
+                android:format24Hour="HH:mm"
+                android:includeFontPadding="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="132sp"
+                android:fontFamily="@string/font_light" />
+
+            <TextClock
+                android:id="@+id/auroraAmPm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:format12Hour="a"
+                android:format24Hour="@null"
+                android:includeFontPadding="false"
+                android:textColor="#CCFFFFFF"
+                android:textSize="30sp"
+                android:fontFamily="@string/font_regular" />
+        </LinearLayout>
+
+        <TextClock
+            android:id="@+id/auroraDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:format12Hour="EEEE d MMMM"
+            android:format24Hour="EEEE d MMMM"
+            android:letterSpacing="0.18"
+            android:textAllCaps="true"
+            android:textColor="#B3FFFFFF"
+            android:textSize="20sp"
+            android:fontFamily="@string/font_regular" />
+
+        <TextView
+            android:id="@+id/auroraWeather"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:textColor="#D9FFFFFF"
+            android:textSize="22sp"
+            android:fontFamily="@string/font_regular"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>
