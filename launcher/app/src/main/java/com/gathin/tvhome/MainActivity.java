@@ -182,7 +182,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void run() {
             refreshFeatured();
             refreshRecs();
-            root.postDelayed(this, 10 * 60 * 1000L);   // each tick refetches only if the cache is an hour old
+            refreshWeather();   // fetches only when 30 minutes have passed since the last reading (WeatherStore)
+            root.postDelayed(this, 10 * 60 * 1000L);   // each tick refetches only if a cache is due
         }
     };
     private final Runnable closeAppsTask = () -> AppCloser.closeBackgroundApps(this);
