@@ -241,6 +241,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean dockRow;
     private boolean continueWatching, recommendations;
     private FeaturedCarousel featured;
+    /** True while the featured screen is up and the dock only peeks up from the bottom; false once the dock is up. */
+    private boolean featuredMode;
+    private boolean featuredEnterPending;
+    private int dockColumnMemory;
     private int featuredGeneration;
     private List<FeaturedRules.Title> shownFeatured = java.util.Collections.emptyList();
     private int recsGeneration;
@@ -426,7 +430,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dockRow = cfg.dockRow;
         continueWatching = cfg.continueWatching;
         recommendations = cfg.recommendations;
-        if (cfg.featured) featured = new FeaturedCarousel(this, findViewById(R.id.featuredCard), t -> startActivity(TitleActivity.intent(this, t)));
+        if (cfg.featured) getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus, newFocus) -> updateFeaturedLevel(newFocus));
+        if (cfg.featured) featured = new FeaturedCarousel(this, findViewById(R.id.featuredFull), t -> startActivity(TitleActivity.intent(this, t)));
         continueMax = cfg.continueMax;
         continueMaxAgeDays = cfg.continueMaxAgeDays;
         continueHidePercent = cfg.continueHidePercent;
@@ -466,7 +471,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The glow is one bitmap, so its alpha can be applied while drawing it. Otherwise every frame of
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
-        ambientGlow = cfg.ambientGlow;
+        ambientGlow = cfg.ambientGlow && !cfg.featured;   // the featured picture is the backdrop; an app-coloured glow over it only tints it
         appGlow = cfg.appGlow;
         if (!ambientGlow) ambient.setVisibility(View.GONE);
         heroName = findViewById(R.id.heroName);
@@ -481,7 +486,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glowStyle = cfg.glowStyle;
         heroDotsShown = cfg.cinematicDots;
         cinematicWhiteFocus = cfg.cinematicWhiteFocus;
-        heroArtAlpha = cfg.cinematicArt / 100f;
+        // The featured screen is the backdrop (sharp, then blurred behind the dock): the focused app's artwork would fight it.
+        heroArtAlpha = cfg.featured ? 0f : cfg.cinematicArt / 100f;
         if (cinematic) setUpCinematicShelf(cfg.cinematicScrim);
         // dock_title false: the name above the dock (and the cinematic lines under it) never shows; the glow
         // still follows the dock.
@@ -989,7 +995,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refreshWeather();
         refreshRecs();
         refreshFeatured();
-        if (featured != null) featured.start();
+        if (featured != null) {
+            featured.start();
+            // Home opens on the featured screen, as Apple TV's does; the dock waits at the bottom edge.
+            featuredEnterPending = true;
+            if (featured.hasTitles()) root.post(() -> enterFeatured(false));
+        }
         if (nowPlaying != null) nowPlaying.start();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -1035,7 +1046,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (showStats) startStats();
         sky.update();
-        wallpaperPlayer.start();
+        // With the featured screen up the wallpaper is covered; do not decode and hold a 1080p picture nobody sees.
+        if (featured != null && featured.hasTitles()) wallpaperPlayer.releaseForMemoryPressure();
+        else wallpaperPlayer.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
         if (festive && diya != null) {
             diya.start();
@@ -1111,6 +1124,87 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }, "recs").start();
     }
 
+    /** The featured screen takes the whole of Home; the dock slides down until only its top shows, and takes no focus. */
+    private void enterFeatured(boolean animate) {
+        if (featured == null || !featured.hasTitles() || reordering || openPopup != null) return;
+        featuredMode = true;
+        featuredEnterPending = false;
+        hideHero();
+        hideGlass();
+        grid.scrollToPosition(0);
+        grid.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        featured.setLevel(FeaturedCarousel.SHARP, animate);
+        showPeekGlass(true, animate);
+        featured.focus();
+        grid.post(() -> {
+            if (!featuredMode) return;
+            float to = peekTranslation();
+            grid.animate().cancel();
+            if (animate && animations && !reducedMotion) {
+                grid.animate().translationY(to).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+            } else {
+                grid.setTranslationY(to);
+            }
+        });
+    }
+
+    /** The dock comes back up, the featured screen drops behind it blurred and dimmed, and focus goes to the dock. */
+    private void enterDock(boolean animate) {
+        if (!featuredMode) return;
+        featuredMode = false;
+        featured.setLevel(FeaturedCarousel.SOFT, animate);
+        showPeekGlass(false, animate);
+        grid.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        final Runnable focus = () -> focusTile(dockColumnMemory);
+        grid.animate().cancel();
+        if (animate && animations && !reducedMotion) {
+            grid.animate().translationY(0f).setDuration(420).setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .withEndAction(focus).start();
+        } else {
+            grid.setTranslationY(0f);
+            focus.run();
+        }
+    }
+
+    /** The frosted strip over the peeking dock tiles: in while the featured screen is up, out once the dock is. */
+    private void showPeekGlass(boolean show, boolean animate) {
+        View glass = findViewById(R.id.peekGlass);
+        glass.animate().cancel();
+        if (show) glass.setVisibility(View.VISIBLE);
+        if (animate && animations && !reducedMotion) {
+            glass.animate().alpha(show ? 1f : 0f).setDuration(420).withEndAction(() -> { if (!show) glass.setVisibility(View.GONE); }).start();
+        } else {
+            glass.setAlpha(show ? 1f : 0f);
+            if (!show) glass.setVisibility(View.GONE);
+        }
+    }
+
+    /** Focus moved: the picture is sharp while the featured screen has it, heavily blurred while the header (music, settings) does. */
+    private void updateFeaturedLevel(View focused) {
+        if (featured == null || !featured.hasTitles() || !featuredMode || focused == null) return;
+        if (focused == featured.view()) featured.setLevel(FeaturedCarousel.SHARP, true);
+        else if (grid.findContainingItemView(focused) == null) featured.setLevel(FeaturedCarousel.HEAVY, true);
+    }
+
+    /** The header widget to land on when going up from the featured screen: the music controls when they show, else the top button. */
+    private View headerFocusTarget() {
+        View play = findViewById(R.id.npPlay);
+        View card = findViewById(R.id.nowPlaying);
+        if (card != null && card.getVisibility() == View.VISIBLE && play != null) return play;
+        return firstTopButton();
+    }
+
+    /** How far down the grid sits while the featured screen is up: just the tops of the dock tiles stay in view. */
+    private float peekTranslation() {
+        int rootH = root.getHeight();
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(0);
+        if (vh == null || rootH == 0) return rootH * 0.66f;
+        int[] at = new int[2];
+        vh.itemView.getLocationInWindow(at);
+        float tileTopAtRest = at[1] - grid.getTranslationY();
+        return Math.max(0f, rootH - 70 * density - tileTopAtRest);
+    }
+
     /** The carousel's titles: the cached ones at once, then a fresh set from TMDB when the cache is old. Worker thread. */
     private void refreshFeatured() {
         if (featured == null) return;
@@ -1129,6 +1223,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (isDestroyed() || generation != featuredGeneration || featured == null || sameTitles(titles, shownFeatured)) return;
             shownFeatured = titles;
             featured.setTitles(titles);
+            if (!titles.isEmpty()) wallpaperPlayer.releaseForMemoryPressure();
+            // The picture covers the screen: the layers under it need not be drawn at all.
+            findViewById(R.id.sky).setVisibility(titles.isEmpty() ? View.VISIBLE : View.GONE);
+            findViewById(R.id.heroScrim).setVisibility(titles.isEmpty() ? View.VISIBLE : View.GONE);
+            if (featuredEnterPending && !titles.isEmpty()) enterFeatured(false);
         });
     }
 
@@ -1308,6 +1407,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     protected void onStop() {
+        if (featured != null) featured.release();   // every backdrop bitmap and the RenderScript context: Home is not on screen
         super.onStop();
         started = false;
         unregisterReceiver(timeReceiver);
@@ -1327,6 +1427,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // RUNNING_LOW and CRITICAL also arrive while Home is visible when an accessibility service keeps the
         // process in the foreground; never blank the screen the owner is looking at.
         if (!MemoryTrimPolicy.shouldRelease(level, started)) return;
+        if (featured != null) featured.release();
         adapter.clear();
         // Detach the adapter too: with Home stopped no layout pass runs, so the tile views (and the bitmaps
         // they hold) would stay attached until Home comes back. setAdapter(null) recycles them now.
@@ -1397,6 +1498,29 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Vendor keys (TCL Netflix button, 4062) never reach the key services, only the focused window.
         if (event.getKeyCode() >= 1000 && RemoteKeys.handle(this, event, homeAppKeys.get(event.getKeyCode()), null)) return true;
         if (handleSettingsKey(event)) return true;
+        if (featured != null && featured.hasTitles() && event.getAction() == KeyEvent.ACTION_DOWN && !reordering && openPopup == null) {
+            if (featuredMode && featured.hasFocus() && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN) {
+                enterDock(true);
+                return true;
+            }
+            if (featuredMode && featured.hasFocus() && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP) {
+                headerFocusTarget().requestFocus();   // a full-screen view has nothing "above" it for the focus search
+                return true;
+            }
+            if (featuredMode && !featured.hasFocus() && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN
+                    && getCurrentFocus() != null && grid.findContainingItemView(getCurrentFocus()) == null) {
+                featured.focus();   // back down from the header to the featured screen
+                return true;
+            }
+            if (!featuredMode && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP) {
+                int p = focusedTilePosition();
+                if (p >= 0 && p < COLUMNS) {   // Up from the dock row goes back to the featured screen
+                    dockColumnMemory = p;
+                    enterFeatured(true);
+                    return true;
+                }
+            }
+        }
         if (featured != null && featured.handleKey(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -1868,7 +1992,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
-        if (featured != null) featured.show(dockTopInRoot - 24 * density - 210 * density);
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
 
@@ -2168,7 +2291,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void hideHero() {
-        if (featured != null) featured.hide();
         if (!heroShown) return;
         stopAmbientAnimation();
         hero.animate().cancel();

@@ -9,7 +9,7 @@ import java.util.Set;
 
 /** The Featured carousel's titles (films and shows): TMDB addresses and replies, mixing, display text, cache lines. */
 final class FeaturedRules {
-    static final String BACKDROP = "https://image.tmdb.org/t/p/w780";
+    static final String BACKDROP = "https://image.tmdb.org/t/p/w1280";
     static final int MAX_TITLES = 10, MAX_OVERVIEW = 420;
     static final String MOVIE = "movie", TV = "tv";
     static final String TAG_FOR_YOU = "Recommended", TAG_NEW = "New", TAG_TOP = "Top rated";

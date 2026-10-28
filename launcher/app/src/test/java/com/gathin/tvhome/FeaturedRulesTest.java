@@ -27,7 +27,7 @@ public class FeaturedRulesTest {
         assertEquals("Game of Thrones", l.get(0).title);
         assertEquals("2011", l.get(0).year);
         assertEquals("Seven noble families fight.", l.get(0).overview);        // newline flattened
-        assertEquals("https://image.tmdb.org/t/p/w780/s.jpg", l.get(0).backdrop);
+        assertEquals("https://image.tmdb.org/t/p/w1280/s.jpg", l.get(0).backdrop);
         assertEquals("★ 8.4 · Series · 2011", FeaturedRules.meta(l.get(0)));
     }
 

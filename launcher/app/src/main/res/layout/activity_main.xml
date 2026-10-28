@@ -23,6 +23,136 @@
         android:visibility="gone"
         android:importantForAccessibility="no" />
 
+    <!-- Featured (featured): the carousel as a full-screen layer. Sharp with its text while the dock only peeks up from
+         the bottom edge; blurred and dimmed behind the dock once it comes up. See FeaturedCarousel. -->
+    <FrameLayout
+        android:id="@+id/featuredFull"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF05070C"
+        android:focusable="true"
+        android:clickable="true"
+        android:visibility="gone">
+
+        <!-- One baked picture (the scrims are drawn into it once), and two tiny pre-blurred copies stretched over it. -->
+        <ImageView
+            android:id="@+id/featArt"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no" />
+
+        <!-- The incoming picture while the carousel slides: both are opaque, so nothing is blended. -->
+        <ImageView
+            android:id="@+id/featArt2"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:importantForAccessibility="no" />
+
+        <ImageView
+            android:id="@+id/featSoft"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:importantForAccessibility="no" />
+
+        <ImageView
+            android:id="@+id/featHeavy"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:importantForAccessibility="no" />
+
+        <LinearLayout
+            android:id="@+id/featInfo"
+            android:layout_width="720dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="88dp"
+            android:layout_marginBottom="112dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/featTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.2"
+                android:textColor="#FF7CD4FF"
+                android:textSize="15sp"
+                android:fontFamily="@string/font_medium" />
+
+            <TextView
+                android:id="@+id/featTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="58sp"
+                android:letterSpacing="-0.02"
+                android:fontFamily="@string/font_light" />
+
+            <TextView
+                android:id="@+id/featMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:singleLine="true"
+                android:textColor="#E6FFFFFF"
+                android:textSize="18sp"
+                android:fontFamily="@string/font_regular" />
+
+            <TextView
+                android:id="@+id/featOverview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:maxLines="3"
+                android:ellipsize="end"
+                android:lineSpacingExtra="3dp"
+                android:textColor="#CCFFFFFF"
+                android:textSize="17sp"
+                android:fontFamily="@string/font_regular" />
+
+            <TextView
+                android:id="@+id/featProviders"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="#FFFFFFFF"
+                android:textSize="18sp"
+                android:fontFamily="@string/font_medium" />
+
+            <LinearLayout
+                android:id="@+id/featDots"
+                android:layout_width="wrap_content"
+                android:layout_height="6dp"
+                android:layout_marginTop="18dp"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/featHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="68dp"
+            android:layout_marginBottom="104dp"
+            android:text="@string/featured_hint"
+            android:textColor="#B3FFFFFF"
+            android:textSize="14sp"
+            android:letterSpacing="0.06"
+            android:fontFamily="@string/font_regular" />
+    </FrameLayout>
+
     <!-- Ambient glow in the colour of the focused dock app. -->
     <View
         android:id="@+id/ambient"
@@ -410,94 +540,16 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Featured carousel (featured): one card above the dock that turns to the next film or show every 8 s; OK opens
-         its page. Positioned above the dock in code, like the top shelf. See FeaturedCarousel. -->
-    <FrameLayout
-        android:id="@+id/featuredCard"
-        android:layout_width="372dp"
-        android:layout_height="210dp"
-        android:layout_gravity="top|end"
-        android:layout_marginEnd="68dp"
-        android:background="#FF10141C"
-        android:foreground="@drawable/feat_focus"
-        android:focusable="true"
-        android:clickable="true"
-        android:visibility="gone">
-
-        <ImageView
-            android:id="@+id/featArt"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:importantForAccessibility="no" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/feat_scrim"
-            android:importantForAccessibility="no" />
-
-        <LinearLayout
-            android:id="@+id/featInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="16dp">
-
-            <TextView
-                android:id="@+id/featTag"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.16"
-                android:textColor="#FF7CD4FF"
-                android:textSize="11sp"
-                android:fontFamily="@string/font_medium" />
-
-            <TextView
-                android:id="@+id/featTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="#FFFFFFFF"
-                android:textSize="24sp"
-                android:fontFamily="@string/font_regular" />
-
-            <TextView
-                android:id="@+id/featMeta"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:singleLine="true"
-                android:textColor="#CCFFFFFF"
-                android:textSize="13sp"
-                android:fontFamily="@string/font_regular" />
-
-            <TextView
-                android:id="@+id/featProviders"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:fontFamily="@string/font_medium" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/featDots"
-            android:layout_width="wrap_content"
-            android:layout_height="6dp"
-            android:layout_gravity="top|end"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="18dp"
-            android:orientation="horizontal" />
-    </FrameLayout>
+    <!-- Over the dock tiles that peek up while the featured screen is up: they sit under frosted glass. -->
+    <View
+        android:id="@+id/peekGlass"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/peek_glass"
+        android:alpha="0"
+        android:visibility="gone"
+        android:importantForAccessibility="no" />
 
     <!-- Now Playing (now_playing): art, title, artist and transport buttons for the playing media session, in the
          header between the date and the top buttons; hidden when nothing plays. See NowPlayingCard. -->

@@ -27,7 +27,7 @@ final class Featured {
     }
 
     private static File cacheFile(Context ctx) {
-        return new File(ctx.getFilesDir(), "featured-v1.tsv");
+        return new File(ctx.getFilesDir(), "featured-v2.tsv");
     }
 
     static List<FeaturedRules.Title> cached(Context ctx) {
